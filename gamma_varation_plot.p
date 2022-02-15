@@ -13,8 +13,15 @@ set ylabel y_label;
 
 set style line 2  lc rgb '#0025ad' lt 1 lw 2.5 # --- blue
 set style line 3  lc rgb '#0042ad' lt 1 lw 2.5 #      .
-set style line 4  lc rgb '#0060ad' lt 1 lw 2.5 #      .
+#set style line 4  lc rgb '#0060ad' lt 1 lw 2.5 #      .
+
+set style line 4  lc rgb '#09ad00'  lt 1 lw 2.5 # 
+
 set style line 5  lc rgb '#007cad' lt 1 lw 2.5 #      .
+
+#set style line 5  lc rgb '#09ad00'  lt 1 lw 2.5 #      .
+
+
 set style line 6  lc rgb '#0099ad' lt 1 lw 2.5 #      .
 set style line 7  lc rgb '#00ada4' lt 1 lw 2.5 #      .
 set style line 8  lc rgb '#00ad88' lt 1 lw 2.5 #      .
@@ -25,7 +32,7 @@ set style line 12 lc rgb '#00ad14' lt 1 lw 2.5#      .
 set style line 13 lc rgb '#09ad00' lt 1 lw 2.5 # --- green
 
 # using (column(0) + x_offset)
-plot for [n=1:5] data_file.".dat" using (column(6)):n w lines ls n;
+plot for [n=1:10] data_file.".dat" using (column(11)):n w lines ls n;
 
 
 

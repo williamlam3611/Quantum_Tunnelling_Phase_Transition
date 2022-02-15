@@ -14,23 +14,29 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_variation      = 1
-    integer,        parameter   :: num_layers         = 50
+    integer,        parameter   :: num_variation      = 20!25
+    integer,        parameter   :: num_layers         = 150 !150
     
-    integer                     :: well_1_start       = 1!1 
-    integer                     :: well_1_stop        = 1!5 
-    real*8                      :: well_1_start_depth = -0.3!1000
-    real*8                      :: well_1_stop_depth  = -0.3!1000
+    integer                     :: well_1_start       = 1 
+    integer                     :: well_1_stop        = 5 
+    real*8                      :: well_1_start_depth = 1000
+    real*8                      :: well_1_stop_depth  = 1000
     
-    integer                     :: well_2_start       = 1!6
-    integer                     :: well_2_stop        = 1!20
-    real*8                      :: well_2_start_depth = 0!-0.30d0
-    real*8                      :: well_2_stop_depth  = 0!0
+    integer                     :: well_2_start       =  1!6
+    integer                     :: well_2_stop        =  40!45!20
+    real*8                      :: well_2_start_depth = -0.40d0 !-0.50d0
+    real*8                      :: well_2_stop_depth  = 0
+
+    real*8                      :: c_parameter = 0.09 !0.01 +0.5
     
-    real*8                      :: a_parameter = 1.9  +1
-    real*8                      :: c_parameter = 0.01 
+    ! for varying depth
+    real*8                      :: b_parameter = 0.645!0.6
     
-    integer,        parameter   :: num_k_length       = 10!256
+    ! for varying width 
+    real*8                      :: a_parameter = 2.5
+        
+    
+    integer,        parameter   :: num_k_length       = 256
     integer,        parameter   :: num_energy         = 256
     integer,        parameter   :: output_bands(3)    = (/ 1, 2, 3 /)
     integer,        parameter   :: output_states(*)   = (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10/)
@@ -105,6 +111,8 @@ program main
     
     real*8,         allocatable :: variation_parameter_list(:)
     
+    real*8                      :: width, depth
+    
     call cpu_start()
     if (cpu_is_master()) then
         call timer_start()
@@ -131,16 +139,45 @@ program main
         !!! variation of width 
         !well_2_stop = 20 + i
         !variation_parameter_list(i) = well_2_stop -5   
+        
+        
+        ! for curve potential (vary width)
+        ! a_parameter = 2.0 +  i * 0.028  ! 1.9 - 2.6  (12 - 42 layers ) for depth = -0.3
+        !a_parameter = 1.5 +  i * 0.028  ! 1.9 - 2.6  (12 - 42 layers ) for depth = -0.4
+        !a_parameter = 1.3 +  i * 0.028  ! 1.9 - 2.6  (12 - 42 layers ) for depth = -0.5
+        
+        !a_parameter = 1.5 +  i * 0.015  ! 1.9 - 2.6  (12 - 42 layers ) for depth = -0.5
+        
+        ! for curve potential (vary depth)
+        
+        !b_parameter = 0.6 + i * 0.00225
+        
+        
+        
         ! -------------------------------------------------------------------------------------------------------------------------
         
         ! Set Up Potential
         ! for normal potential
         !call potential_add_well(pot(i, :), well_1_start, well_1_stop, well_1_start_depth, well_1_stop_depth)
-        !call potential_add_well(pot(i, :), well_2_start, well_2_stop, well_2_start_depth, well_2_stop_depth)
+        call potential_add_well(pot(i, :), well_2_start, well_2_stop, well_2_start_depth, well_2_stop_depth)
         
-        ! for curve potential 
-        call potential_add_well_curve(pot(i, :), well_1_start, well_1_start_depth, a_parameter,c_parameter)
-        !call potential_add_well_curve(pot(i, :), well_2_start, well_2_start_depth, a_parameter, c_parameter)  
+        ! for curve potential (vary width)
+        !call potential_add_well_curve_width(pot(i, :), well_1_start, well_1_start_depth, a_parameter,c_parameter, width)
+        !call potential_add_well_curve_width (pot(i, :), well_2_start, well_2_start_depth, a_parameter, c_parameter, width)  
+        
+        ! for curve potential (vary depth)
+        !call potential_add_well_curve_depth(pot(i, :), well_1_start, well_1_stop, b_parameter,c_parameter, depth)
+        !call potential_add_well_curve_depth (pot(i, :), well_2_start, well_2_stop, b_parameter, c_parameter, depth)       
+
+        ! for varying width --> curve potential 
+        !if (cpu_is_master()) then
+        !    variation_parameter_list(i) = width 
+        !end if
+        
+        ! for varying depth --> curve potential 
+        !if (cpu_is_master()) then
+        !    variation_parameter_list(i) = depth
+        !end if
              
     end do
     
@@ -501,16 +538,16 @@ program main
 
 
                 do j = 1, i 
-                    gamma_energy_list(j, 6) = variation_parameter_list(j)
+                    gamma_energy_list(j, 11) = variation_parameter_list(j)
                 end do 
-                call export_data(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:6))
+                call export_data(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:11))
 
                 !!! for variation of potential (depth)
                 !call graph_multiple_plot("gamma_energy_list", "gamma_energy_plot", "Qunatum well potential [eV]", &
                 !"energy states [eV]", 1, trim(path))
                 
                 call graph_multiple_plot("gamma_energy_list", "gamma_energy_plot", "Qunatum well potential [eV]", &
-                "width", 0, trim(path))
+                "energy states [eV]", 0, trim(path))
                 
                 
                 
@@ -525,10 +562,10 @@ program main
                 if (i== num_variation) then 
                 
                     do j = 1, num_variation
-                        gamma_energy_list(j, 6) = variation_parameter_list(j)
+                        gamma_energy_list(j, 11) = variation_parameter_list(j)
                     end do 
                     
-                    call export_data(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:6))              
+                    call export_data(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:11))              
                 
                 end if 
                 
