@@ -5,7 +5,7 @@ module export
                export_data0_double   , export_data1_double   , export_data2_double, &
                export_data0_character, export_data1_character
     public  :: export_meta_data, export_data, &
-               export_create_dir, export_to_string
+               export_create_dir, export_to_string, export_energymap
     
     interface export_data
         module procedure export_data0_character, export_data1_character, &
@@ -17,6 +17,23 @@ module export
 
 
 contains
+    subroutine export_energymap(path, data_double, data_integer)
+        character(*), intent(in)  :: path
+        real*8,       intent(in)  :: data_double(:)
+        integer,       intent(in) :: data_integer(:, :)
+        integer                   :: file_number
+        integer                   :: i, j
+        call export_open_append(path, file_number)
+        do i = 1, size(data_integer(:, 1))
+            write(file_number, fmt = "(F16.8)", advance = "no") data_double(i)
+            do j = 1, size(data_integer(1, :))
+                write(file_number, fmt = "(I16)", advance = "no") data_integer(i, j)
+            end do
+            write(file_number, *)
+        end do
+        close(file_number)
+    end subroutine export_energymap
+    
     subroutine export_meta_data(path, num_k_length, num_layers, num_k_path, num_energy, &
         broadening, crystal_length, max_crystal_length, &
         min_potential, max_potential, min_density, max_density, energy_min, energy_max, min_heatmap, max_heatmap)

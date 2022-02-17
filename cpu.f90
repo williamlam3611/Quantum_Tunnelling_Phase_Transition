@@ -15,7 +15,7 @@ module cpu
     integer, private            :: cpu_error
     
     interface cpu_sum
-        module procedure cpu_sum_double
+        module procedure cpu_sum_double, cpu_sum_integer
     end interface cpu_sum
     
     interface cpu_broadcast
@@ -69,6 +69,21 @@ contains
         call MPI_REDUCE(v_in, v_out, size(v_in), MPI_DOUBLE_PRECISION, MPI_SUM, id, MPI_COMM_WORLD, cpu_error)
     
     end subroutine cpu_sum_double
+    
+    subroutine cpu_sum_integer(v_in, v_out, target_id)
+        integer, intent(in)  :: v_in(..)
+        integer, intent(out) :: v_out(..)
+        integer, optional    :: target_id
+        integer              :: id = cpu_master_id
+        if (.not. cpu_started) then
+            call cpu_start()
+        end if
+        if (present(target_id)) then
+            id = target_id
+        end if
+        call MPI_REDUCE(v_in, v_out, size(v_in), MPI_INT, MPI_SUM, id, MPI_COMM_WORLD, cpu_error)
+    
+    end subroutine cpu_sum_integer
     
     subroutine cpu_broadcast_integer(v, length, target_id)
         integer, intent(in)    :: length

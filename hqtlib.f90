@@ -11,7 +11,8 @@ private
 
 public :: hqtlib_find_energy_and_weight, hqtlib_find_max_num_states, &
           hqtlib_find_energy_max, hqtlib_find_energy_min, &
-          hqtlib_find_density, hqtlib_find_spectral_distribution
+          hqtlib_find_density, hqtlib_find_spectral_distribution, &
+          hqtlib_find_band_contribution
 
 interface hqtlib_find_energy_and_weight
     module procedure hqtlib_find_energy_and_weight_integer_pot, hqtlib_find_energy_and_weight_real_pot, &
@@ -180,21 +181,21 @@ contains
 
     subroutine hqtlib_find_density(density, energy, weight, energy_range, broadening, total_num_bands, crystal_length, num_k, &
                                    layers, bands, energy_levels)
-        real*8, intent(in)               :: energy(:)
-        complex*16, intent(in)           :: weight(:, :)
-        real*8, intent(in)               :: energy_range(:)
-        real*8, intent(in)               :: broadening
-        integer, intent(in)              :: total_num_bands
-        real*8, intent(in)               :: crystal_length
-        integer, intent(in)              :: num_k
-        integer, optional, intent(in)    :: layers(:)
-        integer, optional, intent(in)    :: bands(:)
-        integer, optional, intent(in)    :: energy_levels(:)
-        integer                          :: total_num_layers
-        integer, allocatable             :: temp_layers(:)
-        integer, allocatable             :: temp_bands(:)
-        integer, allocatable             :: temp_energy_levels(:)
-        real*8, allocatable              :: spect(:, :, :, :)
+        real*8, intent(in)                 :: energy(:)
+        complex*16, intent(in)             :: weight(:, :)
+        real*8, intent(in)                 :: energy_range(:)
+        real*8, intent(in)                 :: broadening
+        integer, intent(in)                :: total_num_bands
+        real*8, intent(in)                 :: crystal_length
+        integer, intent(in)                :: num_k
+        integer, optional, intent(in)      :: layers(:)
+        integer, optional, intent(in)      :: bands(:)
+        integer, optional, intent(in)      :: energy_levels(:)
+        integer                            :: total_num_layers
+        integer, allocatable               :: temp_layers(:)
+        integer, allocatable               :: temp_bands(:)
+        integer, allocatable               :: temp_energy_levels(:)
+        real*8, allocatable                :: spect(:, :, :, :)
         real*8, allocatable, intent(inout) :: density(:, :, :)
         total_num_layers = size(weight(:, 1)) / total_num_bands
         if (.not. (present(layers) .or. present(bands) .or. present(energy_levels))) then
@@ -246,19 +247,19 @@ contains
     
     subroutine hqtlib_find_spectral_distribution(spect, energy, weight, energy_range, broadening, total_num_bands, &
                                                  layers, bands, energy_levels)
-        real*8, intent(in)               :: energy(:)
-        complex*16, intent(in)           :: weight(:, :)
-        real*8, intent(in)               :: energy_range(:)
-        real*8, intent(in)               :: broadening
-        integer, intent(in)              :: total_num_bands
-        integer, optional, intent(in)    :: layers(:)
-        integer, optional, intent(in)    :: bands(:)
-        integer, optional, intent(in)    :: energy_levels(:)
-        integer                          :: total_num_layers
-        integer                          :: l, b, n, e
-        integer, allocatable             :: temp_layers(:)
-        integer, allocatable             :: temp_bands(:)
-        integer, allocatable             :: temp_energy_levels(:)
+        real*8, intent(in)                 :: energy(:)
+        complex*16, intent(in)             :: weight(:, :)
+        real*8, intent(in)                 :: energy_range(:)
+        real*8, intent(in)                 :: broadening
+        integer, intent(in)                :: total_num_bands
+        integer, optional, intent(in)      :: layers(:)
+        integer, optional, intent(in)      :: bands(:)
+        integer, optional, intent(in)      :: energy_levels(:)
+        integer                            :: total_num_layers
+        integer                            :: l, b, n, e
+        integer, allocatable               :: temp_layers(:)
+        integer, allocatable               :: temp_bands(:)
+        integer, allocatable               :: temp_energy_levels(:)
         real*8, allocatable, intent(inout) :: spect(:, :, :, :)
         total_num_layers = size(weight(:, 1)) / total_num_bands
         if (.not. (present(layers) .or. present(bands) .or. present(energy_levels))) then
@@ -319,5 +320,72 @@ contains
         end if
     
     end subroutine hqtlib_find_spectral_distribution
+    
+    subroutine hqtlib_find_band_contribution(contribution, energy, weight, total_num_bands, &
+                                                 layers, bands, energy_levels)
+        real*8, intent(in)                 :: energy(:)
+        complex*16, intent(in)             :: weight(:, :)
+        integer, intent(in)                :: total_num_bands
+        integer, optional, intent(in)      :: layers(:)
+        integer, optional, intent(in)      :: bands(:)
+        integer, optional, intent(in)      :: energy_levels(:)
+        integer                            :: total_num_layers
+        integer                            :: l, b, n
+        integer, allocatable               :: temp_layers(:)
+        integer, allocatable               :: temp_bands(:)
+        integer, allocatable               :: temp_energy_levels(:)
+        real*8, allocatable, intent(inout) :: contribution(:, :, :)
+        total_num_layers = size(weight(:, 1)) / total_num_bands
+        if (.not. (present(layers) .or. present(bands) .or. present(energy_levels))) then
+            if (allocated(contribution)) then
+                if (any(shape(contribution) .ne. (/ total_num_layers, total_num_bands, size(energy) /))) then
+                    deallocate(contribution)
+                    allocate(contribution(total_num_layers, total_num_bands, size(energy)))
+                end if
+            else
+                allocate(contribution(total_num_layers, total_num_bands, size(energy)))
+            end if
+            do l = 1, total_num_layers
+                do b = 1, total_num_bands
+                    do n = 1, size(energy)
+                        contribution(l, b, n) = dble(abs(weight((l - 1) * total_num_bands + b, n)**2))
+                    end do
+                end do
+            end do
+        else
+            if (present(layers)) then
+                temp_layers = layers
+            else
+                temp_layers = route_range_integer(1, total_num_layers, total_num_layers)
+            end if
+            if (present(bands)) then
+                temp_bands = bands
+            else
+                temp_bands = route_range_integer(1, total_num_bands, total_num_bands)
+            end if
+            if (present(energy_levels)) then
+                temp_energy_levels = energy_levels
+            else
+                temp_energy_levels = route_range_integer(1, size(energy), size(energy))
+            end if
+            if (allocated(contribution)) then
+                if (any(shape(contribution) .ne. (/ size(layers), size(bands), size(energy_levels) /))) then
+                    deallocate(contribution)
+                    allocate(contribution(size(layers), size(bands), size(energy_levels)))
+                end if
+            else
+                allocate(contribution(size(layers), size(bands), size(energy_levels)))
+            end if
+            do l = 1, size(temp_layers)
+                do b = 1, size(temp_bands)
+                    do n = 1, size(temp_energy_levels)
+                        contribution(l, b, n) = dble(abs(weight((temp_layers(l) - 1) * total_num_bands + temp_bands(b), &
+                                                                  temp_energy_levels(n))**2))
+                    end do
+                end do
+            end do
+        end if
+    
+    end subroutine hqtlib_find_band_contribution
 
 end module hqtlib

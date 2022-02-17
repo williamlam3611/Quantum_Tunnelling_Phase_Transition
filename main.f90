@@ -16,7 +16,7 @@ program main
     implicit none
     
     integer,        parameter   :: num_variation      = 1 !25
-    integer,        parameter   :: num_layers         = 20 !150
+    integer,        parameter   :: num_layers         = 25 !150
     
     integer                     :: well_1_start       = 1 
     integer                     :: well_1_stop        = 1 
@@ -93,8 +93,11 @@ program main
     real*8,         allocatable :: temp_den_1(:, :, :), temp_den_2(:, :, :), &
                                    den_cpu(:, :, :), den_total_cpu(:), &
                                    den(:, :, :), den_total(:)
+    real*8,         allocatable :: temp_energymap_1(:, :, :), temp_energymap_2(:, :, :), &
+                                   energymap_cpu(:, :, :), energymap_total_cpu(:, :, :), & 
+                                   energymap(:, :, :), energymap_total(:, :, :)
     
-    character(256)              :: path, variation_dir, band_dir, energy_state_dir
+    character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir
     
     integer                     :: i, j, k, l, m, e, n
     
@@ -241,18 +244,21 @@ program main
     end do
     
     ! Allocate Dynamic Arrays
-    allocate(energy(num_states))
-    allocate(weight(num_states, num_states))
-    allocate(heatmap_cpu(      size(kp),   size(output_bands), size(output_states), num_energy))
-    allocate(heatmap_total_cpu(size(kp),   num_energy))
-    allocate(den_cpu(          num_layers, size(output_bands), size(output_states)))
-    allocate(den_total_cpu(    num_layers))
+    allocate(energy(             num_states))
+    allocate(weight(             num_states, num_states))
+    allocate(heatmap_cpu(        size(kp),   size(output_bands),     size(output_states), num_energy))
+    allocate(heatmap_total_cpu(  size(kp),   num_energy))
+    allocate(den_cpu(            num_layers, size(output_bands),     size(output_states)))
+    allocate(den_total_cpu(      num_layers))
+    allocate(energymap_cpu(      size(kp),   num_bands + 1,          size(output_states)))
+    allocate(energymap_total_cpu(size(kp),   num_bands + 1,          maxval(max_num_states)))
     if (cpu_is_master()) then
-        allocate(heatmap(      size(kp),   size(output_bands), size(output_states), num_energy))
-        allocate(heatmap_total(size(kp),   num_energy))
-        allocate(den(          num_layers, size(output_bands), size(output_states)))
-        allocate(den_total(    num_layers))
-        
+        allocate(heatmap(        size(kp),   size(output_bands),     size(output_states), num_energy))
+        allocate(heatmap_total(  size(kp),   num_energy))
+        allocate(den(            num_layers, size(output_bands),     size(output_states)))
+        allocate(den_total(      num_layers))
+        allocate(energymap(      size(kp),   num_bands + 1,          size(output_states)))
+        allocate(energymap_total(size(kp),   num_bands + 1,          maxval(max_num_states)))
     end if
     
     ! Set up Output Folder
@@ -281,15 +287,19 @@ program main
     allocate(gamma_energy(num_layers* num_bands))
     
     do i = 1, num_variation
-        den_cpu            = 0d0
-        den_total_cpu      = 0d0
-        heatmap_cpu        = 0d0
-        heatmap_total_cpu  = 0d0
+        den_cpu             = 0d0
+        den_total_cpu       = 0d0
+        heatmap_cpu         = 0d0
+        heatmap_total_cpu   = 0d0
+        energymap_cpu       = 0d0
+        energymap_total_cpu = 0d0
         if (cpu_is_master()) then
-            den            = 0d0
-            den_total      = 0d0
-            heatmap        = 0d0
-            heatmap_total  = 0d0
+            den             = 0d0
+            den_total       = 0d0
+            heatmap         = 0d0
+            heatmap_total   = 0d0
+            energymap       = 0d0
+            energymap_total = 0d0
         end if
         
         ! determine gamma point 
@@ -307,20 +317,34 @@ program main
                 
             end if 
             
+            ! Density
+            ! temp_* can be the same in theory but seperate ones is quicker as it reduced the number of allocations
             call hqtlib_find_density(temp_den_1, energy(:num_found), weight(:, :num_found), energy_range(i, :), broadening, &
                                      num_bands, crystal_length, sum(kw)) 
             den_total_cpu = den_total_cpu + sum(sum(temp_den_1, 2), 2) * kw(k)
             call hqtlib_find_density(temp_den_2, energy(:num_found), weight(:, :num_found), energy_range(i, :), broadening, &
                                      num_bands, crystal_length, sum(kw), bands = output_bands, energy_levels = output_states) 
+                                                                         ! layers option as well
             den_cpu       = den_cpu + temp_den_2 * kw(k)
-            if (kl(k) .ne. -1) then
+            if (kl(k) .ne. -1) then ! True if on Path
+                ! Band Structure
                 call hqtlib_find_spectral_distribution(temp_heatmap_1, energy(:num_found), weight(:, :num_found), &
                                                        energy_range(i, :), broadening, num_bands)
-                heatmap_total_cpu(kl(k), :) = heatmap_total_cpu(kl(k), :) + sum(sum(sum(temp_heatmap_1, 1), 1), 1)
+                heatmap_total_cpu(kl(k), :) = sum(sum(sum(temp_heatmap_1, 1), 1), 1)
                 call hqtlib_find_spectral_distribution(temp_heatmap_2, energy(:num_found), weight(:, :num_found), &
                                                        energy_range(i, :), broadening, num_bands, &
                                                        bands = output_bands, energy_levels = output_states)
-                heatmap_cpu(kl(k), :, :, :) = heatmap_cpu(kl(k), :, :, :) + sum(temp_heatmap_2, 1)
+                heatmap_cpu(kl(k), :, :, :) = sum(temp_heatmap_2, 1)
+                ! Energy Structure
+                energymap_total_cpu(kl(k), 1, :num_found)  = energy(:num_found)
+                call hqtlib_find_band_contribution(temp_energymap_1, energy(:num_found), weight(:, :num_found), num_bands)
+                energymap_total_cpu(kl(k), 2:, :num_found) = sum(temp_energymap_1, 1)
+                do j = 1, size(output_states)
+                    if (j <= num_found) energymap_cpu(kl(k), 1, j)  = energy(output_states(j))
+                end do
+                call hqtlib_find_band_contribution(temp_energymap_2, energy(:num_found), weight(:, :num_found), num_bands, &
+                                                   bands = output_bands, energy_levels = output_states)
+                energymap_cpu(kl(k), 2:, :) = sum(temp_energymap_2, 1)
             end if
         end do
         
@@ -335,6 +359,9 @@ program main
         call cpu_sum(den_total_cpu, den_total)
         call cpu_sum(heatmap_cpu, heatmap)
         call cpu_sum(heatmap_total_cpu, heatmap_total)
+        call cpu_sum(energymap_cpu, energymap)
+        call cpu_sum(energymap_total_cpu, energymap_total)
+        
         ! No more multithreading for rest of cycle
         if (cpu_is_master()) then
             ! Export Meta Data
@@ -346,15 +373,21 @@ program main
                 minval(energy_range(i, :)), maxval(energy_range(i, :)), minval(log(heatmap_total)), maxval(log(heatmap_total)))
                 
             ! Export and Plot Variation Data
-            call export_data(trim(variation_dir)//"potential.dat",      pot(i, :))
-            call export_data(trim(variation_dir)//"gamma_energy.dat",   gamma_energy)
-            call export_data(trim(variation_dir)//"density.dat",        den_total)
-            call export_data(trim(variation_dir)//"band structure.dat", transpose(log(heatmap_total)))
+            call export_data(trim(variation_dir)//"potential.dat",       pot(i, :))
+            call export_data(trim(variation_dir)//"gamma_energy.dat",    gamma_energy)
+            call export_data(trim(variation_dir)//"density.dat",         den_total)
+            call export_data(trim(variation_dir)//"band structure.dat",  transpose(log(heatmap_total)))
             call graph_basic_plot("potential", "potential", &
                 1, "Layer", "Potential [eV]", 1, trim(variation_dir))
             call graph_basic_plot("density", "density", &
                 1, "Layer", "Carrier Density [nm^{-2}]", 1, trim(variation_dir))
             call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(variation_dir))
+            ! Energy Map
+            energymap_dir = export_create_dir(trim(variation_dir), "Energy_map")
+            do j = 1, maxval(max_num_states)
+                call export_data(trim(energymap_dir)//"Energy_level"//export_to_string(j)//".dat", energymap_total(:, :, j))
+            end do
+            call graph_multiple_coloured_MGX(trim(energymap_dir), "Energy_map", trim(variation_dir)//"meta", "k", "eV")
             
             ! Export and Plot Variation Band Data
             do j = 1, size(output_bands)
@@ -379,6 +412,7 @@ program main
                 call graph_basic_plot("density", "density", &
                     1, "Layer", "Carrier Density [nm^{-2}]", 1, trim(energy_state_dir))
                 call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(energy_state_dir))
+                ! Bands
                 do n = 1, size(output_bands)
                     band_dir = export_create_dir(trim(energy_state_dir)//"Bands/", "Band " &
                         //export_to_string(output_bands(n)))
@@ -390,6 +424,10 @@ program main
                         1, "Layer", "Carrier Density [nm^{-2}]", 1, trim(band_dir))
                     call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(band_dir))
                 end do
+                ! Energy Map
+                energymap_dir = export_create_dir(trim(energy_state_dir), "Energy_map")
+                call export_data(trim(energymap_dir)//"Energy_level.dat", energymap(:, :, j))
+                call graph_multiple_coloured_MGX(trim(energymap_dir), "Energy_map", trim(variation_dir)//"meta", "k", "eV")
             end do
             
             ! Export and Plot Data
@@ -475,6 +513,6 @@ program main
     !end if 
     
     call cpu_stop()
-    
+
 
 end program main
