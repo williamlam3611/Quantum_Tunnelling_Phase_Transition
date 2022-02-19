@@ -3,7 +3,7 @@ compiler_flags = -O3 -fbackslash -fopenmp
 compiler_flags_debug = -Og -fbacktrace -fbackslash -fopenmp
 
 libraries = -L/usr/lib -llapack -lblas -lsymspg
-modules = spglib_f08.f90 cpu.f90 timer.f90 import.f90 route.f90 potential.f90 transform.f90 bulk.f90 matrix.f90 spectral.f90 density.f90 export.f90 graph.f90 hqtlib.f90
+modules = spglib_f08.f90 cpu.f90 timer.f90 import.f90 route.f90 potential.f90 transform.f90 bulk.f90 matrix.f90 sort.f90 spectral.f90 density.f90 export.f90 graph.f90 hqtlib.f90
 target = main.f90
 output = a.out
 

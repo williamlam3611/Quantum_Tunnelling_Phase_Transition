@@ -27,6 +27,18 @@ interface hqtlib_find_energy_min
     module procedure hqtlib_find_energy_min_layer, hqtlib_find_energy_min_pot
 end interface hqtlib_find_energy_min
 
+interface hqtlib_find_density
+    module procedure hqtlib_find_density_, hqtlib_find_density_range
+end interface
+
+interface hqtlib_find_spectral_distribution
+    module procedure hqtlib_find_spectral_distribution_, hqtlib_find_spectral_distribution_range
+end interface
+
+interface hqtlib_find_band_contribution
+    module procedure hqtlib_find_band_contribution_, hqtlib_find_band_contribution_range
+end interface
+
 contains
     function hqtlib_find_energy_min_pot(hr, hrw, pot, broadening) result(energy_min)
         complex*16, intent(in)       :: hr(:, :, :, :, :)
@@ -178,214 +190,121 @@ contains
         call hqtlib_find_energy_and_weight(energy, weight, num_found, kx, ky, hr, hrw, pot, min_energy, max_energy)
         
     end subroutine hqtlib_find_energy_and_weight_real_layer
+    
+    function hqtlib_find_density_(energy, weight, energy_range, broadening, total_num_bands, crystal_length, num_k) result(density)
+        real*8, intent(in)     :: energy(:)
+        complex*16, intent(in) :: weight(:, :)
+        real*8, intent(in)     :: energy_range(:)
+        real*8, intent(in)     :: broadening
+        real*8, intent(in)     :: crystal_length
+        integer, intent(in)    :: num_k
+        integer, intent(in)    :: total_num_bands
+        integer                :: l, b, n
+        real*8                 :: density(size(weight(:, 1)) / total_num_bands, total_num_bands, size(energy))
+        density = hqtlib_find_density(energy, weight, energy_range, broadening, total_num_bands, crystal_length, num_k, &
+                                   1, size(density(:, 1, 1)), 1, size(density(1, :, 1)), 1, size(density(1, 1, :)))
+                                   
+    end function hqtlib_find_density_
 
-    subroutine hqtlib_find_density(density, energy, weight, energy_range, broadening, total_num_bands, crystal_length, num_k, &
-                                   layers, bands, energy_levels)
-        real*8, intent(in)                 :: energy(:)
-        complex*16, intent(in)             :: weight(:, :)
-        real*8, intent(in)                 :: energy_range(:)
-        real*8, intent(in)                 :: broadening
-        integer, intent(in)                :: total_num_bands
-        real*8, intent(in)                 :: crystal_length
-        integer, intent(in)                :: num_k
-        integer, optional, intent(in)      :: layers(:)
-        integer, optional, intent(in)      :: bands(:)
-        integer, optional, intent(in)      :: energy_levels(:)
-        integer                            :: total_num_layers
-        integer, allocatable               :: temp_layers(:)
-        integer, allocatable               :: temp_bands(:)
-        integer, allocatable               :: temp_energy_levels(:)
-        real*8, allocatable                :: spect(:, :, :, :)
-        real*8, allocatable, intent(inout) :: density(:, :, :)
-        total_num_layers = size(weight(:, 1)) / total_num_bands
-        if (.not. (present(layers) .or. present(bands) .or. present(energy_levels))) then
-            if (allocated(density)) then
-                if (any(shape(density) .ne. (/ total_num_layers, total_num_bands, size(energy) /))) then
-                    deallocate(density)
-                    allocate(density(total_num_layers, total_num_bands, size(energy)))
-                end if
-            else
-                allocate(density(total_num_layers, total_num_bands, size(energy)))
-            end if
-            density = 0d0
-            call hqtlib_find_spectral_distribution(spect, energy, weight, energy_range, broadening, total_num_bands)
-        else
-            if (present(layers)) then
-                temp_layers = layers
-            else
-                temp_layers = route_range_integer(1, total_num_layers, total_num_layers)
-            end if
-            if (present(bands)) then
-                temp_bands = bands
-            else
-                temp_bands = route_range_integer(1, total_num_bands, total_num_bands)
-            end if
-            if (present(energy_levels)) then
-                temp_energy_levels = energy_levels
-            else
-                temp_energy_levels = route_range_integer(1, size(energy), size(energy))
-            end if
-            if (allocated(density)) then
-                if (any(shape(density) .ne. (/ size(temp_layers), size(temp_bands), size(temp_energy_levels) /))) then
-                    deallocate(density)
-                    allocate(density(size(temp_layers), size(temp_bands), size(temp_energy_levels)))
-                end if
-            else
-                allocate(density(size(temp_layers), size(temp_bands), size(temp_energy_levels)))
-            end if
-            density = 0d0
-            call hqtlib_find_spectral_distribution(spect, energy, weight, energy_range, broadening, total_num_bands, &
-                                                   temp_layers, temp_bands, temp_energy_levels)
-        end if
-        density = sum(spect, 4)
+    function hqtlib_find_density_range(energy, weight, energy_range, broadening, total_num_bands, crystal_length, num_k, &
+                                   min_layer, max_layer, min_band, max_band, min_state, max_state) result (density)
+        real*8, intent(in)     :: energy(:)
+        complex*16, intent(in) :: weight(:, :)
+        real*8, intent(in)     :: energy_range(:)
+        real*8, intent(in)     :: broadening
+        real*8, intent(in)     :: crystal_length
+        integer, intent(in)    :: num_k
+        integer, intent(in)    :: total_num_bands
+        integer, intent(in)    :: min_layer
+        integer, intent(in)    :: max_layer
+        integer, intent(in)    :: min_band
+        integer, intent(in)    :: max_band
+        integer, intent(in)    :: min_state
+        integer, intent(in)    :: max_state
+        real*8                 :: density(max_layer - min_layer + 1, max_band - min_band + 1, max_state - min_state + 1)
+        density = sum(hqtlib_find_spectral_distribution(energy, weight, energy_range, broadening, total_num_bands, &
+                                   min_layer, max_layer, min_band, max_band, min_state, max_state), 4)
         density = density * (1d0 / 3.141592653589793d0) &
                           * (1d0 / dble(num_k)) &
                           * ((energy_range(2) - energy_range(1)) / size(energy_range)) &
                           * (1d0 / crystal_length**2)
     
-    end subroutine hqtlib_find_density
+    end function hqtlib_find_density_range
     
-    subroutine hqtlib_find_spectral_distribution(spect, energy, weight, energy_range, broadening, total_num_bands, &
-                                                 layers, bands, energy_levels)
-        real*8, intent(in)                 :: energy(:)
-        complex*16, intent(in)             :: weight(:, :)
-        real*8, intent(in)                 :: energy_range(:)
-        real*8, intent(in)                 :: broadening
-        integer, intent(in)                :: total_num_bands
-        integer, optional, intent(in)      :: layers(:)
-        integer, optional, intent(in)      :: bands(:)
-        integer, optional, intent(in)      :: energy_levels(:)
-        integer                            :: total_num_layers
-        integer                            :: l, b, n, e
-        integer, allocatable               :: temp_layers(:)
-        integer, allocatable               :: temp_bands(:)
-        integer, allocatable               :: temp_energy_levels(:)
-        real*8, allocatable, intent(inout) :: spect(:, :, :, :)
-        total_num_layers = size(weight(:, 1)) / total_num_bands
-        if (.not. (present(layers) .or. present(bands) .or. present(energy_levels))) then
-            if (allocated(spect)) then
-                if (any(shape(spect) .ne. (/ total_num_layers, total_num_bands, size(energy), size(energy_range) /))) then
-                    deallocate(spect)
-                    allocate(spect(total_num_layers, total_num_bands, size(energy), size(energy_range)))
-                end if
-            else
-                allocate(spect(total_num_layers, total_num_bands, size(energy), size(energy_range)))
-            end if
-            do l = 1, total_num_layers
-                do b = 1, total_num_bands
-                    do n = 1, size(energy)
-                        do e = 1, size(energy_range)
-                            spect(l, b, n, e) = spectral_function(energy(n), dble(abs(weight((l - 1) * total_num_bands + b, &
-                                                                                             n)**2)), energy_range(e), broadening)
-                        end do
+    function hqtlib_find_spectral_distribution_(energy, weight, energy_range, broadening, total_num_bands) result(spect)
+        real*8, intent(in)     :: energy(:)
+        complex*16, intent(in) :: weight(:, :)
+        real*8, intent(in)     :: energy_range(:)
+        real*8, intent(in)     :: broadening
+        integer, intent(in)    :: total_num_bands
+        integer                :: l, b, n
+        real*8                 :: spect(size(weight(:, 1)) / total_num_bands, total_num_bands, size(energy), size(energy_range))
+        spect = hqtlib_find_spectral_distribution(energy, weight, energy_range, broadening, total_num_bands, &
+                                   1, size(spect(:, 1, 1, 1)), 1, size(spect(1, :, 1, 1)), 1, size(spect(1, 1, :, 1)))
+                                   
+    end function hqtlib_find_spectral_distribution_
+    
+    function hqtlib_find_spectral_distribution_range(energy, weight, energy_range, broadening, total_num_bands, &
+                                   min_layer, max_layer, min_band, max_band, min_state, max_state) result(spect)
+        real*8, intent(in)     :: energy(:)
+        complex*16, intent(in) :: weight(:, :)
+        real*8, intent(in)     :: energy_range(:)
+        real*8, intent(in)     :: broadening
+        integer, intent(in)    :: total_num_bands
+        integer, intent(in)    :: min_layer
+        integer, intent(in)    :: max_layer
+        integer, intent(in)    :: min_band
+        integer, intent(in)    :: max_band
+        integer, intent(in)    :: min_state
+        integer, intent(in)    :: max_state
+        integer                :: l, b, n, e
+        real*8                 :: spect(max_layer - min_layer + 1, max_band - min_band + 1, max_state - min_state + 1, &
+                                        size(energy_range))
+        do l = min_layer, max_layer
+            do b = min_band, max_band
+                do n = min_state, max_state
+                    do e = 1, size(energy_range)
+                        spect(l, b, n, e) = spectral_function(energy(n), dble(abs(weight((l - 1) * total_num_bands + b, &
+                                                                                         n)**2)), energy_range(e), broadening)
                     end do
                 end do
             end do
-        else
-            if (present(layers)) then
-                temp_layers = layers
-            else
-                temp_layers = route_range_integer(1, total_num_layers, total_num_layers)
-            end if
-            if (present(bands)) then
-                temp_bands = bands
-            else
-                temp_bands = route_range_integer(1, total_num_bands, total_num_bands)
-            end if
-            if (present(energy_levels)) then
-                temp_energy_levels = energy_levels
-            else
-                temp_energy_levels = route_range_integer(1, size(energy), size(energy))
-            end if
-            if (allocated(spect)) then
-                if (any(shape(spect) .ne. (/ size(layers), size(bands), size(energy_levels), size(energy_range) /))) then
-                    deallocate(spect)
-                    allocate(spect(size(layers), size(bands), size(energy_levels), size(energy_range)))
-                end if
-            else
-                allocate(spect(size(layers), size(bands), size(energy_levels), size(energy_range)))
-            end if
-            do l = 1, size(temp_layers)
-                do b = 1, size(temp_bands)
-                    do n = 1, size(temp_energy_levels)
-                        do e = 1, size(energy_range)
-                            spect(l, b, n, e) = spectral_function(energy(temp_energy_levels(n)), &
-                                                         dble(abs(weight((temp_layers(l) - 1) * total_num_bands + temp_bands(b), &
-                                                                  temp_energy_levels(n))**2)), &
-                                                                  energy_range(e), broadening)
-                        end do
-                    end do
+        end do
+    
+    end function hqtlib_find_spectral_distribution_range
+    
+    function hqtlib_find_band_contribution_(energy, weight, total_num_bands) result(contribution)
+        real*8, intent(in)     :: energy(:)
+        complex*16, intent(in) :: weight(:, :)
+        integer, intent(in)    :: total_num_bands
+        integer                :: l, b, n
+        real*8                 :: contribution(size(weight(:, 1)) / total_num_bands, total_num_bands, size(energy))
+        contribution = hqtlib_find_band_contribution(energy, weight, total_num_bands, &
+                                   1, size(contribution(:, 1, 1)), 1, size(contribution(1, :, 1)), 1, size(contribution(1, 1, :)))
+                                   
+    end function hqtlib_find_band_contribution_
+    
+    function hqtlib_find_band_contribution_range(energy, weight, total_num_bands, &
+                                   min_layer, max_layer, min_band, max_band, min_state, max_state) result(contribution)
+        real*8, intent(in)     :: energy(:)
+        complex*16, intent(in) :: weight(:, :)
+        integer, intent(in)    :: total_num_bands
+        integer, intent(in)    :: min_layer
+        integer, intent(in)    :: max_layer
+        integer, intent(in)    :: min_band
+        integer, intent(in)    :: max_band
+        integer, intent(in)    :: min_state
+        integer, intent(in)    :: max_state
+        integer                :: l, b, n
+        real*8                 :: contribution(max_layer - min_layer + 1, max_band - min_band + 1, max_state - min_state + 1)
+        do l = min_layer, max_layer
+            do b = min_band, max_band
+                do n = min_state, max_state
+                    contribution(l, b, n) = dble(abs(weight((l - 1) * total_num_bands + b, n)**2))
                 end do
             end do
-        end if
+        end do
     
-    end subroutine hqtlib_find_spectral_distribution
-    
-    subroutine hqtlib_find_band_contribution(contribution, energy, weight, total_num_bands, &
-                                                 layers, bands, energy_levels)
-        real*8, intent(in)                 :: energy(:)
-        complex*16, intent(in)             :: weight(:, :)
-        integer, intent(in)                :: total_num_bands
-        integer, optional, intent(in)      :: layers(:)
-        integer, optional, intent(in)      :: bands(:)
-        integer, optional, intent(in)      :: energy_levels(:)
-        integer                            :: total_num_layers
-        integer                            :: l, b, n
-        integer, allocatable               :: temp_layers(:)
-        integer, allocatable               :: temp_bands(:)
-        integer, allocatable               :: temp_energy_levels(:)
-        real*8, allocatable, intent(inout) :: contribution(:, :, :)
-        total_num_layers = size(weight(:, 1)) / total_num_bands
-        if (.not. (present(layers) .or. present(bands) .or. present(energy_levels))) then
-            if (allocated(contribution)) then
-                if (any(shape(contribution) .ne. (/ total_num_layers, total_num_bands, size(energy) /))) then
-                    deallocate(contribution)
-                    allocate(contribution(total_num_layers, total_num_bands, size(energy)))
-                end if
-            else
-                allocate(contribution(total_num_layers, total_num_bands, size(energy)))
-            end if
-            do l = 1, total_num_layers
-                do b = 1, total_num_bands
-                    do n = 1, size(energy)
-                        contribution(l, b, n) = dble(abs(weight((l - 1) * total_num_bands + b, n)**2))
-                    end do
-                end do
-            end do
-        else
-            if (present(layers)) then
-                temp_layers = layers
-            else
-                temp_layers = route_range_integer(1, total_num_layers, total_num_layers)
-            end if
-            if (present(bands)) then
-                temp_bands = bands
-            else
-                temp_bands = route_range_integer(1, total_num_bands, total_num_bands)
-            end if
-            if (present(energy_levels)) then
-                temp_energy_levels = energy_levels
-            else
-                temp_energy_levels = route_range_integer(1, size(energy), size(energy))
-            end if
-            if (allocated(contribution)) then
-                if (any(shape(contribution) .ne. (/ size(layers), size(bands), size(energy_levels) /))) then
-                    deallocate(contribution)
-                    allocate(contribution(size(layers), size(bands), size(energy_levels)))
-                end if
-            else
-                allocate(contribution(size(layers), size(bands), size(energy_levels)))
-            end if
-            do l = 1, size(temp_layers)
-                do b = 1, size(temp_bands)
-                    do n = 1, size(temp_energy_levels)
-                        contribution(l, b, n) = dble(abs(weight((temp_layers(l) - 1) * total_num_bands + temp_bands(b), &
-                                                                  temp_energy_levels(n))**2))
-                    end do
-                end do
-            end do
-        end if
-    
-    end subroutine hqtlib_find_band_contribution
+    end function hqtlib_find_band_contribution_range
 
 end module hqtlib

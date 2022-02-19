@@ -3,9 +3,30 @@ implicit none
 
 private
 
-public :: sort_bubble, sort_mode
+public :: sort_bubble, sort_mode, sort_normalise
+
+interface sort_normalise
+    module procedure sort_normalise_, sort_normalise_array
+end interface sort_normalise
 
 contains
+    function sort_normalise_(array) result(ret)
+        real*8, intent(in) :: array(:)
+        real*8             :: ret(size(array))
+        ret = array / sum(array)
+    
+    end function sort_normalise_
+    
+    function sort_normalise_array(array) result(ret)
+        real*8, intent(in) :: array(:, :)
+        real*8             :: ret(size(array(:, 1)), size(array(1, :)))
+        integer            :: i
+        do i = 1, size(array(:, 1))
+            ret(i, :) = sort_normalise(array(i, :))
+        end do
+        
+    end function sort_normalise_array
+
     subroutine sort_bubble(array)
         integer, intent(inout) :: array(:)
         integer                :: temp
