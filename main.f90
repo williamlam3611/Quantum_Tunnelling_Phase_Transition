@@ -17,7 +17,7 @@ program main
     implicit none
     
     integer,        parameter   :: num_variation      = 20 !25
-    integer,        parameter   :: num_layers         = 100 !150
+    integer,        parameter   :: num_layers         = 50 !150
     
     integer                     :: well_1_start       = 1 
     integer                     :: well_1_stop        = 1 
@@ -374,7 +374,7 @@ program main
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 "#     Broadening Crystal Len (a)   K Len [2pi*a]")
             call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ broadening, crystal_length * 1d10, 2 * pi * crystal_length * 1d10 /))
+                (/ broadening, crystal_length * 1d10, length_scale /))
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 "#            Min             Max")
             call export_vstack(trim(variation_dir)//"meta.dat", &
@@ -413,7 +413,19 @@ program main
                 call export_hstack(trim(energymap_dir)//"Energy_level"//export_to_string(j)//".dat", &
                                    transpose(contribution(:, :, j)))
             end do
-            call graph_multiple_coloured_MGX(trim(energymap_dir), "Energy_map", trim(variation_dir)//"meta", "k", "eV")
+            call graph_colour_MGX(data_folder = trim(energymap_dir), &
+                              output_file = trim(energymap_dir), &
+                              x_label = "K_{M Γ X} [π/a]", &
+                              y_label = "E - E_{cbm} [ev]", &
+                              x_triangle = 0.2d0, &
+                              y_triangle = 0.2d0, &
+                              triangle_size = 0.15d0, &
+                              column_label_1 = "1", &
+                              column_label_2 = "2", &
+                              column_label_3 = "3", &
+                              k_scale = length_scale, &
+                              min_y = minval(energy_range(i, :)), &
+                              max_y = maxval(energy_range(i, :)))
             
             ! Export and Plot Variation Band Data
             do j = 1, max_band - min_band + 1
@@ -457,7 +469,19 @@ program main
                 energymap_dir = export_create_dir(trim(energy_state_dir), "Energy_map")
                 call export_hstack(trim(energymap_dir)//"Energy_level.dat", energymap(:, j))
                 call export_hstack(trim(energymap_dir)//"Energy_level.dat", transpose(contribution(:, :, j)))
-                call graph_multiple_coloured_MGX(trim(energymap_dir), "Energy_map", trim(variation_dir)//"meta", "k", "eV")
+                call graph_colour_MGX(data_folder = trim(energymap_dir), &
+                              output_file = trim(energymap_dir), &
+                              x_label = "K_{M Γ X} [π/a]", &
+                              y_label = "E - E_{cbm} [ev]", &
+                              x_triangle = 0.2d0, &
+                              y_triangle = 0.2d0, &
+                              triangle_size = 0.15d0, &
+                              column_label_1 = "1", &
+                              column_label_2 = "2", &
+                              column_label_3 = "3", &
+                              k_scale = length_scale, &
+                              min_y = minval(energy_range(i, :)), &
+                              max_y = maxval(energy_range(i, :)))
                 if (cpu_is_master()) call main_status(j, max_state - min_state + 1, start_time)
             end do
             if (cpu_is_master()) then
