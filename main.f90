@@ -48,7 +48,7 @@ program main
     integer                     :: min_band           = -1
     integer                     :: max_band           = -1
     integer                     :: min_state          = -1
-    integer                     :: max_state          = -1
+    integer                     :: max_state          = 10
     real*8                      :: energy_min         = -1d0
     real*8                      :: energy_max         = 0d0
     
