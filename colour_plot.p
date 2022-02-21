@@ -1,21 +1,24 @@
 set print "-";
 
 is_folder = 0;
-if (!exists("data_folder")) data_folder = GPVAL_PWD;
-if (strstrt(data_folder, ".") == 0) is_folder = 1;
-if (!exists("output_file") && is_folder) output_file = data_folder;
-if (!exists("output_file") && !is_folder) output_file = data_folder[1:strstrt(data_folder, ".") - 1];
-if (!exists("output_file_type")) output_file_type = "svg";
-if (!exists("y_resolution")) y_resolution = 1680;
-if (!exists("x_resolution")) x_resolution = 1050;
-if (!exists("font")) font = "Helvetica";
-if (!exists("font_size")) font_size = "16";
-if (!exists("background_colour")) background_colour = "white";
-if (!exists("x_label")) x_label = "X";
-if (!exists("y_label")) y_label = "Y";
-if (!exists("x_triangle")) x_triangle = 0.1;
-if (!exists("y_triangle")) y_triangle = 0.2;
-if (!exists("triangle_size")) triangle_size = 0.2;
+if (!exists("data_folder"))               data_folder       = GPVAL_PWD;
+if (strstrt(data_folder, ".") == 0)       is_folder         = 1;
+if (!exists("output_file") && is_folder)  output_file       = data_folder;
+if (!exists("output_file") && !is_folder) output_file       = data_folder[1:strstrt(data_folder, ".") - 1];
+if (!exists("output_file_type"))          output_file_type  = "svg";
+if (!exists("y_resolution"))              y_resolution      = 1680;
+if (!exists("x_resolution"))              x_resolution      = 1050;
+if (!exists("font"))                      font              = "Helvetica";
+if (!exists("font_size"))                 font_size         = "16";
+if (!exists("background_colour"))         background_colour = "white";
+if (!exists("x_label"))                   x_label           = "X";
+if (!exists("y_label"))                   y_label           = "Y";
+if (!exists("x_triangle"))                x_triangle        = 0.1;
+if (!exists("y_triangle"))                y_triangle        = 0.2;
+if (!exists("triangle_size"))             triangle_size     = 0.2;
+if (!exists("column_label_1"))            column_label_1    = "red";
+if (!exists("column_label_2"))            column_label_2    = "blue";
+if (!exists("column_label_3"))            column_label_3    = "green";
 
 if (is_folder) {
     pwd = GPVAL_PWD;
@@ -48,9 +51,9 @@ unset xtics;
 unset ytics;
 set size triangle_size, triangle_size;
 set origin x_triangle, y_triangle;
-set label 1 "dyz" at screen x_triangle, y_triangle centre textcolor rgb "black";
-set label 2 "dxz" at screen x_triangle + triangle_size, y_triangle centre textcolor rgb "black";
-set label 3 "dxy" at screen x_triangle + triangle_size / 2, y_triangle + triangle_size centre textcolor rgb "black";
+set label 1 column_label_3 at screen x_triangle, y_triangle centre textcolor rgb "black";
+set label 2 column_label_2 at screen x_triangle + triangle_size, y_triangle centre textcolor rgb "black";
+set label 3 column_label_1 at screen x_triangle + triangle_size / 2, y_triangle + triangle_size centre textcolor rgb "black";
 plot 'colour_triangle.png' binary filetype=png with rgbalpha;
 
 unset multiplot;

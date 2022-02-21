@@ -222,19 +222,13 @@ program main
     
     ! Determine Conductiong Band Minimum
     cbm = hqtlib_find_energy_min(hr, hrw, num_layers)
+    energy_min = energy_min + cbm
+    energy_max = energy_max + cbm
     
     ! Determine Maximum number of bands
     do i = 1, num_variation
-        if (energy_min == -1d0) then
-            energy_min = hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening)
-        else
-            energy_min = energy_min + cbm
-        end if
-        if (energy_max == -1d0) then
-            energy_max = hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening)
-        else
-            energy_max = energy_max + cbm
-        end if
+        if (energy_min == -1d0 + cbm) energy_min = hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening)
+        if (energy_max == -1d0 + cbm) energy_max = hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening)
         max_num_states(i) = hqtlib_find_max_num_states(hr, hrw, pot(i, :), energy_min, energy_max)
         if (max_num_states(i) == 0) then
             max_num_states(i) = 1
@@ -404,7 +398,10 @@ program main
                               y_label = "Carrier Density [nm^{-2}]", &
                               x_triangle = 0.75d0, &
                               y_triangle = 0.75d0, &
-                              triangle_size = 0.15d0)
+                              triangle_size = 0.15d0, &
+                              column_label_1 = "1", &
+                              column_label_2 = "2", &
+                              column_label_3 = "3")
             call export_hstack(trim(variation_dir)//"band structure.dat",  log(sum(sum(heatmap, 2), 2)))                  
             call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(variation_dir))
             energymap_dir = export_create_dir(trim(variation_dir), "Energy_map")
@@ -425,7 +422,7 @@ program main
             end do
             
             ! Export and Plot Variation Energy State Data
-            do j = 1, max_state - min_state + 1
+            do j = 1, max_num_states(i) - min_state + 1
                 energy_state_dir = export_create_dir(trim(variation_dir)//"Energy States/", "Energy State "//export_to_string(j))
                 call export_hstack(trim(energy_state_dir)//"density.dat", sum(den(:, :, j), 2))
                 call export_hstack(trim(energy_state_dir)//"density.dat", transpose(sort_normalise(den(:, :, j))))
@@ -435,7 +432,10 @@ program main
                                   y_label = "Carrier Density [nm^{-2}]", &
                                   x_triangle = 0.75d0, &
                                   y_triangle = 0.75d0, &
-                                  triangle_size = 0.15d0)
+                                  triangle_size = 0.15d0, &
+                                  column_label_1 = "1", &
+                                  column_label_2 = "2", &
+                                  column_label_3 = "3")
                 call export_hstack(trim(energy_state_dir)//"band structure"//".dat", log(sum(heatmap(:, :, j, :), 2)))
                 call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(energy_state_dir))
                 ! Bands

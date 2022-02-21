@@ -66,7 +66,8 @@ contains
     end subroutine graph_multiple_coloured_MGX
     
     subroutine graph_colour(data_folder, output_file, output_file_type, y_resolution, x_resolution, font, font_size, &
-                            background_colour, x_label, y_label, x_triangle, y_triangle, triangle_size)
+                            background_colour, x_label, y_label, x_triangle, y_triangle, triangle_size, &
+                            column_label_1, column_label_2, column_label_3)
         character(*), optional :: data_folder
         character(*), optional :: output_file
         character(*), optional :: output_file_type
@@ -80,6 +81,9 @@ contains
         real*8,       optional :: x_triangle
         real*8,       optional :: y_triangle
         real*8,       optional :: triangle_size
+        character(*), optional :: column_label_1
+        character(*), optional :: column_label_2
+        character(*), optional :: column_label_3
         character, allocatable :: buffer(:)
         call graph_buffer(buffer, "gnuplot -e """)
         if (present(data_folder)) call graph_buffer(buffer, "data_folder = '"//data_folder//"';")
@@ -95,6 +99,9 @@ contains
         if (present(x_triangle)) call graph_buffer(buffer, "x_triangle = '"//export_to_string(x_triangle)//"';")
         if (present(y_triangle)) call graph_buffer(buffer, "y_triangle = '"//export_to_string(y_triangle)//"';")
         if (present(triangle_size)) call graph_buffer(buffer, "triangle_size = '"//export_to_string(triangle_size)//"';")
+        if (present(column_label_1)) call graph_buffer(buffer, "column_label_1 = '"//column_label_1//"';")
+        if (present(column_label_2)) call graph_buffer(buffer, "column_label_2 = '"//column_label_2//"';")
+        if (present(column_label_3)) call graph_buffer(buffer, "column_label_3 = '"//column_label_3//"';")
         call graph_buffer(buffer, """ colour_plot.p")
         call execute_command_line(graph_to_string(buffer))
         
