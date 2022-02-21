@@ -38,8 +38,8 @@ program main
     real*8                      :: a_parameter = 2.5
         
     
-    integer,        parameter   :: num_k_length       = 256
-    integer,        parameter   :: num_energy         = 256
+    integer,        parameter   :: num_k_length       = 100
+    integer,        parameter   :: num_energy         = 100
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
     
@@ -136,7 +136,7 @@ program main
         
         !!! variation of width 
         well_2_stop = i
-        variation_parameter_list(i) = well_2_stop - 1
+        variation_parameter_list(i) = well_2_stop
         
         
         ! for curve potential (vary width)
@@ -283,7 +283,8 @@ program main
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if (cpu_is_master()) then
-        allocate(gamma_energy_list(num_variation, num_layers* num_bands))
+        allocate(gamma_energy_list(num_variation, num_layers * num_bands))
+        gamma_energy_list = 0d0
     end if 
     
     allocate(gamma_energy(num_layers* num_bands))
@@ -312,8 +313,10 @@ program main
             call hqtlib_find_energy_and_weight(energy, weight, num_found, kx(k), ky(k), hr, hrw, pot(i, :), 1, max_num_states(i))
             energy(:num_found) = energy(:num_found) - cbm
             
-            if (k == size(kw)) then            
-                gamma_energy = energy               
+            if (k == size(kw)) then     
+                do j = 1, num_found
+                    gamma_energy(j) = energy(j)    
+                end do
                 call cpu_send_double(gamma_energy, size(gamma_energy), 0, i)
                 cpu_from = cpu_get_id()
                 
@@ -371,7 +374,7 @@ program main
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 "#     Broadening Crystal Len (a)   K Len [2pi*a]")
             call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ broadening,   crystal_length, crystal_length /))
+                (/ broadening, crystal_length * 1d10, 2 * pi * crystal_length * 1d10 /))
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 "#            Min             Max")
             call export_vstack(trim(variation_dir)//"meta.dat", &
@@ -498,7 +501,7 @@ program main
                 do j = 1, i 
                     gamma_energy_list(j, 11) = variation_parameter_list(j)
                 end do 
-                call export_hstack(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:11))
+                call export_vstack(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:11))
 
                 !!! for variation of potential (depth)
                 !call graph_multiple_plot("gamma_energy_list", "gamma_energy_plot", "Qunatum well potential [eV]", &
@@ -523,7 +526,7 @@ program main
                         gamma_energy_list(j, 11) = variation_parameter_list(j)
                     end do 
                     
-                    call export_hstack(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:11))              
+                    call export_vstack(trim(path)//"gamma_energy_list.dat", gamma_energy_list(1:i,1:11))              
                 
                 end if 
                 
