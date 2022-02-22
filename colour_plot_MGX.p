@@ -2,7 +2,7 @@ set print "-";
 
 is_folder = 0;
 if (!exists("data_folder"))               data_folder       = GPVAL_PWD;
-if (strstrt(data_folder, ".") < 2)        is_folder         = 1;
+if (strstrt(substr(data_folder, 2, strlen(data_folder)), ".") == 0) is_folder = 1;
 if (!exists("output_file") && is_folder)  output_file       = data_folder;
 if (!exists("output_file") && !is_folder) output_file       = data_folder[1:strstrt(data_folder, ".") - 1];
 if (!exists("output_file_type"))          output_file_type  = "svg";

@@ -38,8 +38,8 @@ program main
     real*8                      :: a_parameter = 2.5
         
     
-    integer,        parameter   :: num_k_length       = 100
-    integer,        parameter   :: num_energy         = 100
+    integer,        parameter   :: num_k_length       = 256
+    integer,        parameter   :: num_energy         = 256
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
     
@@ -96,7 +96,7 @@ program main
     real*8,         allocatable :: contribution_cpu(:, :, :) , contribution(:, :, :)                             
     real*8,         allocatable :: energymap_cpu(:, :), energymap(:, :)
     
-    character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir
+    character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir, gamma_dir
     
     integer                     :: i, j, k, l, m, e, n, start_time
     
@@ -270,6 +270,7 @@ program main
             "#          Total  Quantum Well 1  Quantum Well 2             Sum"// &
             "       Avg Total      Avg Well 1      Avg Well 2    Avg Well Sum")
         call export_vstack(trim(path)//"variation_parameter_list.dat", variation_parameter_list)
+        gamma_dir = export_create_dir(trim(path), "Gamma")
     end if
     
     ! Determine CPU Work
@@ -502,6 +503,14 @@ program main
                 sum(den(well_1_start:well_1_stop, :, :)) + &
                     sum(den(well_2_start:well_2_stop, :, :)) / (abs(well_1_stop + well_2_stop - well_1_start - well_2_start) + 2) &
                 /), (/ 1, 8 /)))
+            !!!
+            do j = 1, max_state -min_state + 1
+                call export_vstack(trim(gamma_dir)//"energy_level_"//export_to_string(j)//".dat", &
+                    (/ energymap(size(kp) / 2, j), contribution(size(kp) / 2, 1, j), &
+                    contribution(size(kp) / 2, 2, j), contribution(size(kp) / 2, 3, j) /))
+            end do
+            !!!
+                
             if (i > 2) then
                 call graph_basic_plot("density", "Total_Density", &
                     1, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
@@ -519,7 +528,19 @@ program main
                     7, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
                 call graph_basic_plot("density", "Average_reservoir_plus_transport_density", &
                     8, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                
+                    
+                !!!
+                call graph_colour(data_folder = trim(gamma_dir), &
+                              output_file = trim(gamma_dir), &
+                              x_label = "energy states [eV]", &
+                              y_label = "Qunatum well potential [eV]", &
+                              x_triangle = 0.2d0, &
+                              y_triangle = 0.2d0, &
+                              triangle_size = 0.15d0, &
+                              column_label_1 = "1", &
+                              column_label_2 = "2", &
+                              column_label_3 = "3")
+                !!!
 
 
                 do j = 1, i 
@@ -588,6 +609,8 @@ contains
     end subroutine main_status
         
     subroutine main_clear_status()
+        write(*, fmt = "(A27)", advance = "no") "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
+        write(*, fmt = "(A27)", advance = "no") "                           "
         write(*, fmt = "(A27)", advance = "no") "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
     end subroutine main_clear_status
 

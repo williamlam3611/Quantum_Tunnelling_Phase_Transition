@@ -2,7 +2,7 @@ set print "-";
 
 is_folder = 0;
 if (!exists("data_folder"))               data_folder       = GPVAL_PWD;
-if (strstrt(data_folder, ".") == 0)       is_folder         = 1;
+if (strstrt(substr(data_folder, 2, strlen(data_folder)), ".") == 0) is_folder = 1;
 if (!exists("output_file") && is_folder)  output_file       = data_folder;
 if (!exists("output_file") && !is_folder) output_file       = data_folder[1:strstrt(data_folder, ".") - 1];
 if (!exists("output_file_type"))          output_file_type  = "svg";
@@ -27,6 +27,10 @@ if (is_folder) {
     cd pwd;
 };
 
+if (substr(output_file, strlen(output_file), strlen(output_file)) eq "/") {
+    output_file = substr(output_file, 1, strlen(output_file) - 1);
+}
+
 set terminal output_file_type size y_resolution, x_resolution font font.", ".font_size background rgb background_colour;
 set output output_file.".".output_file_type;
 set key off;
@@ -39,7 +43,10 @@ set multiplot layout 1, 2;
 
 set size 1, 1;
 if (is_folder) {
+    pwd = GPVAL_PWD;
+    cd data_folder;
     plot for [data in data_files] data using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+    cd pwd;
 } else {
     plot data_folder using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
 };
