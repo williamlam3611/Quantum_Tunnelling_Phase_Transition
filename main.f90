@@ -26,8 +26,8 @@ program main
     
     integer                     :: well_2_start       = 1!6
     integer                     :: well_2_stop        = 1!45!20
-    real*8                      :: well_2_start_depth = -0.5d0 !-0.5d0
-    real*8                      :: well_2_stop_depth  = 0d0
+    real*8                      :: well_2_start_depth = -0.1d0 !-0.5d0
+    real*8                      :: well_2_stop_depth  = 0! -0.1d0! 0d0
 
     real*8                      :: c_parameter = 0.09 !0.01 +0.5
     
@@ -38,7 +38,7 @@ program main
     real*8                      :: a_parameter = 2.5
         
     
-    integer,        parameter   :: num_k_length       = 256
+    integer,        parameter   :: num_k_length       = 50! 256
     integer,        parameter   :: num_energy         = 256
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
@@ -48,7 +48,7 @@ program main
     integer                     :: min_band           = -1
     integer                     :: max_band           = -1
     integer                     :: min_state          = -1
-    integer                     :: max_state          = 10
+    integer                     :: max_state          = 30
     real*8                      :: energy_min         = -1d0
     real*8                      :: energy_max         = 0d0
     
@@ -135,7 +135,7 @@ program main
         !variation_parameter_list(i) = well_2_start_depth  
         
         !!! variation of width 
-        well_2_stop = i
+        well_2_stop = i -1 
         variation_parameter_list(i) = well_2_stop
         
         
@@ -213,6 +213,12 @@ program main
     call cpu_broadcast(kw, size(kw))
     call cpu_broadcast(kp, size(kp))
     
+    !print*, size(kx), size(ky), size(kw), size(kp)
+    !print*, 'kx' , '-->', kx
+    !print*, 'ky' , '-->', ky
+    !print*, 'kw' , '-->', kw
+    !print*, 'kp' , '-->', kp
+    
     ! Produce inverse path mapping kw -> kp
     allocate(kl(size(kw)))
     kl = -1
@@ -220,6 +226,7 @@ program main
         kl(kp(i)) = i
     end do
     
+    !print*, 'kp', kp 
     ! Determine Conductiong Band Minimum
     cbm = hqtlib_find_energy_min(hr, hrw, num_layers)
     energy_min = energy_min + cbm
@@ -328,6 +335,7 @@ program main
                                                             broadening, num_bands, crystal_length, sum(kw), &
                                                             min_layer, max_layer, min_band, max_band, min_state, max_state)
             
+            
             if (kl(k) .ne. -1) then ! True if on Path
                 ! Heatmap
                 heatmap_cpu(kl(k), :, :, :) = sum(hqtlib_find_spectral_distribution(energy(:num_found), weight(:, :num_found), &
@@ -335,7 +343,11 @@ program main
                                                               min_layer, max_layer, min_band, max_band, min_state, max_state), 1)
                 
                 ! Energy Structure
-                energymap_cpu(kl(k), :num_found)  = energy(:num_found)
+                energymap_cpu(kl(k) , :num_found)  = energy(:num_found)
+                
+                !print*, size(kx), size(ky), size(kw), size(kp)
+                !print*, k, '...', kl(k), '-->', energy(:num_found)
+                
                 ! Band Contribution
                 contribution_cpu(kl(k), :, :) = sum(hqtlib_find_band_contribution(energy(:num_found), weight(:, :num_found), &
                                                                                   num_bands, &
@@ -358,6 +370,8 @@ program main
         call cpu_sum(den_cpu, den)
         call cpu_sum(heatmap_cpu, heatmap)
         call cpu_sum(energymap_cpu, energymap)
+
+        
         call cpu_sum(contribution_cpu, contribution)
         
         ! No more multithreading for rest of cycle
@@ -421,9 +435,9 @@ program main
                               x_triangle = 0.2d0, &
                               y_triangle = 0.2d0, &
                               triangle_size = 0.15d0, &
-                              column_label_1 = "1", &
-                              column_label_2 = "2", &
-                              column_label_3 = "3", &
+                              column_label_1 = "d_{xy}", &
+                              column_label_2 = "d_{xz}", &
+                              column_label_3 = "d_{yz}", &
                               k_scale = length_scale, &
                               min_y = minval(energy_range(i, :)), &
                               max_y = maxval(energy_range(i, :)))
@@ -449,9 +463,9 @@ program main
                                   x_triangle = 0.75d0, &
                                   y_triangle = 0.75d0, &
                                   triangle_size = 0.15d0, &
-                                  column_label_1 = "1", &
-                                  column_label_2 = "2", &
-                                  column_label_3 = "3")
+                                  column_label_1 = "d_{xy}", &
+                              column_label_2 = "d_{xz}", &
+                              column_label_3 = "d_{yz}")
                 call export_hstack(trim(energy_state_dir)//"band structure"//".dat", log(sum(heatmap(:, :, j, :), 2)))
                 call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(energy_state_dir))
                 ! Bands
@@ -477,9 +491,9 @@ program main
                               x_triangle = 0.2d0, &
                               y_triangle = 0.2d0, &
                               triangle_size = 0.15d0, &
-                              column_label_1 = "1", &
-                              column_label_2 = "2", &
-                              column_label_3 = "3", &
+                              column_label_1 = "d_{xy}", &
+                              column_label_2 = "d_{xz}", &
+                              column_label_3 = "d_{yz}", &
                               k_scale = length_scale, &
                               min_y = minval(energy_range(i, :)), &
                               max_y = maxval(energy_range(i, :)))
@@ -504,10 +518,12 @@ program main
                     sum(den(well_2_start:well_2_stop, :, :)) / (abs(well_1_stop + well_2_stop - well_1_start - well_2_start) + 2) &
                 /), (/ 1, 8 /)))
             !!!
+            !print*, energymap
             do j = 1, max_state -min_state + 1
                 call export_vstack(trim(gamma_dir)//"energy_level_"//export_to_string(j)//".dat", &
-                    (/ energymap(size(kp) / 2, j), contribution(size(kp) / 2, 1, j), &
-                    contribution(size(kp) / 2, 2, j), contribution(size(kp) / 2, 3, j) /))
+                    (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
+                    contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 /))
+                    
             end do
             !!!
                 
@@ -537,9 +553,9 @@ program main
                               x_triangle = 0.2d0, &
                               y_triangle = 0.2d0, &
                               triangle_size = 0.15d0, &
-                              column_label_1 = "1", &
-                              column_label_2 = "2", &
-                              column_label_3 = "3")
+                              column_label_1 = "d_{xy}", &
+                              column_label_2 = "d_{xz}", &
+                              column_label_3 = "d_{yz}")
                 !!!
 
 

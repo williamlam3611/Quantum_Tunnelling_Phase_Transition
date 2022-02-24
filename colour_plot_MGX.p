@@ -95,7 +95,7 @@ unset rmargin
 set origin (2 - sqrt(2)), 0.03;
 unset ylabel
 set ytics font ",0"
-set xrange [((max_row / 2) + 1):max_row]
+set xrange [((max_row / 2)):max_row]
 if (is_folder) {
     pwd = GPVAL_PWD;
     cd data_folder;
