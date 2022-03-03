@@ -36,6 +36,8 @@ set output output_file.".".output_file_type;
 set key off;
 set xlabel x_label;
 set ylabel y_label;
+#set yrange [:0]
+
 
 rgb(r,g,b) = 65536 * int(r * 256) + 256 * int(g * 256) + int(b * 256);
 
@@ -45,7 +47,7 @@ set size 1, 1;
 if (is_folder) {
     pwd = GPVAL_PWD;
     cd data_folder;
-    plot for [data in data_files] data using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+    plot for [data in data_files] data using (column(5)):1:(rgb($2, $3, $4)) with lines lc rgb variable;
     cd pwd;
 } else {
     plot data_folder using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;

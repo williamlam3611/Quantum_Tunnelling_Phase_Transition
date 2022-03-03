@@ -16,8 +16,8 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_variation      = 20 !25
-    integer,        parameter   :: num_layers         = 50 !150
+    integer,        parameter   :: num_variation      = 50
+    integer,        parameter   :: num_layers         = 150
     
     integer                     :: well_1_start       = 1 
     integer                     :: well_1_stop        = 1 
@@ -25,8 +25,8 @@ program main
     real*8                      :: well_1_stop_depth  = 0d0
     
     integer                     :: well_2_start       = 1!6
-    integer                     :: well_2_stop        = 1!45!20
-    real*8                      :: well_2_start_depth = -0.1d0 !-0.5d0
+    integer                     :: well_2_stop        = 10!45!20
+    real*8                      :: well_2_start_depth = -0.2d0 !-0.5d0
     real*8                      :: well_2_stop_depth  = 0! -0.1d0! 0d0
 
     real*8                      :: c_parameter = 0.09 !0.01 +0.5
@@ -38,7 +38,7 @@ program main
     real*8                      :: a_parameter = 2.5
         
     
-    integer,        parameter   :: num_k_length       = 50! 256
+    integer,        parameter   :: num_k_length       = 256
     integer,        parameter   :: num_energy         = 256
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
@@ -48,9 +48,9 @@ program main
     integer                     :: min_band           = -1
     integer                     :: max_band           = -1
     integer                     :: min_state          = -1
-    integer                     :: max_state          = 30
+    integer                     :: max_state          = 20
     real*8                      :: energy_min         = -1d0
-    real*8                      :: energy_max         = 0d0
+    real*8                      :: energy_max         = 0.10d0
     
     
     integer                     :: x_offset           = 0
@@ -131,7 +131,7 @@ program main
         
         
         !!! variation of potential (depth)
-        !well_2_start_depth = i * -0.025d0
+        !well_2_start_depth = (i-1) * -0.005d0
         !variation_parameter_list(i) = well_2_start_depth  
         
         !!! variation of width 
@@ -226,7 +226,6 @@ program main
         kl(kp(i)) = i
     end do
     
-    !print*, 'kp', kp 
     ! Determine Conductiong Band Minimum
     cbm = hqtlib_find_energy_min(hr, hrw, num_layers)
     energy_min = energy_min + cbm
@@ -234,11 +233,12 @@ program main
     
     ! Determine Maximum number of bands
     do i = 1, num_variation
+        
         if (energy_min == -1d0 + cbm) energy_min = hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening)
         if (energy_max == -1d0 + cbm) energy_max = hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening)
         max_num_states(i) = hqtlib_find_max_num_states(hr, hrw, pot(i, :), energy_min, energy_max)
         if (max_num_states(i) == 0) then
-            max_num_states(i) = 1
+            max_num_states(i) = 3        !######
         end if
         if (max_state .ne. -1 .and. max_num_states(i) > max_state) then
             max_num_states(i) = max_state
@@ -317,6 +317,7 @@ program main
             write(*, fmt = "(A)", advance = "no") "  Generate Data: "
             call system_clock(start_time)
         end if
+        
         do k = k_start, k_stop
             call hqtlib_find_energy_and_weight(energy, weight, num_found, kx(k), ky(k), hr, hrw, pot(i, :), 1, max_num_states(i))
             energy(:num_found) = energy(:num_found) - cbm
@@ -522,7 +523,8 @@ program main
             do j = 1, max_state -min_state + 1
                 call export_vstack(trim(gamma_dir)//"energy_level_"//export_to_string(j)//".dat", &
                     (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
-                    contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 /))
+                    contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 , & 
+                    variation_parameter_list(i)/))
                     
             end do
             !!!

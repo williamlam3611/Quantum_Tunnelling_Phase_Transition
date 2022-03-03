@@ -47,6 +47,8 @@ set output output_file.".".output_file_type;
 set key off;
 set tics scale 0;
 
+
+
 rgb(r,g,b) = 65536 * int(r * 256) + 256 * int(g * 256) + int(b * 256)
 
 set multiplot layout 1, 3;
@@ -80,6 +82,10 @@ set origin 0, 0.03
 set rmargin 0
 set xrange [0:(max_row / 2)]
 set yrange [min_y:max_y]
+
+#set yrange [min_y:0]
+
+
 if (is_folder) {
     pwd = GPVAL_PWD;
     cd data_folder;
