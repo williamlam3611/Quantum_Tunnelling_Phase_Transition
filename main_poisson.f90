@@ -21,6 +21,8 @@ program main
     integer                     :: well_start         = 1
     integer                     :: well_stop          = 10
     real*8                      :: depth              = -0.1d0
+    real*8                      :: alpha              = 0.5d0
+    real*8                      :: eps                = 300d0
         
     integer,        parameter   :: num_k_length       = 50
     integer,        parameter   :: num_energy         = 256
@@ -168,6 +170,7 @@ program main
         
         temp_max_states = max_state
         if (temp_max_states == -1) temp_max_states = hqtlib_find_max_num_states(hr, hrw, pot, energy_min, energy_max)
+        print *, temp_max_states
         do k = k_start, k_stop
             call hqtlib_find_energy_and_weight(energy, weight, num_found, kx(k), ky(k), hr, hrw, pot, min_state, temp_max_states)
             energy(:num_found) = energy(:num_found) - cbm
@@ -176,7 +179,6 @@ program main
             den_cpu = den_cpu + kw(k) * hqtlib_find_density(energy(:num_found), weight(:, :num_found), energy_range, &
                                                             broadening, num_bands, crystal_length, sum(kw), &
                                                             min_layer, max_layer, min_band, max_band, min_state, temp_max_states)
-            
             
             if (kl(k) .ne. -1) then ! True if on Path
                 
@@ -246,6 +248,12 @@ program main
             write(*, fmt = "(A10, I4.1, A9)") "Variation ", i, " complete"
             call timer_split()
         end if
+        
+        ! Alter Potential
+        pot = ((1 - alpha) * sum(sum(den, 2), 2) * 1d18) / eps
+        
+        
+        
     end do
     
     call cpu_stop()
