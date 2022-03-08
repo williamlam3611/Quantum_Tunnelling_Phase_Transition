@@ -1,0 +1,8 @@
+You can run gnuplot directly with
+
+gnuplot  
+
+The environment opens in the console and you can add your commands after gnuplot>
+
+load 'file.gnu'
+

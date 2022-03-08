@@ -19,39 +19,46 @@ if (!exists("triangle_size"))             triangle_size     = 0.2;
 if (!exists("column_label_1"))            column_label_1    = "red";
 if (!exists("column_label_2"))            column_label_2    = "blue";
 if (!exists("column_label_3"))            column_label_3    = "green";
-if (!exists("k_scale"))                   k_scale           = 1.0;
-if (!exists("min_y"))                     min_y             = -1.0;
-if (!exists("max_y"))                     max_y             = 1.0;
 
-max_col = 0;
-max_row = 0;
-probe_file = data_folder;
 if (is_folder) {
     pwd = GPVAL_PWD;
     cd data_folder;
     data_files = system("ls -1 *.dat");
     cd pwd;
-    
-    probe_file = data_folder.data_files[1:strstrt(data_files, "\n") - 1];
 };
-stats probe_file nooutput;
-max_col = STATS_columns;
-max_row = STATS_records;
 
 if (substr(output_file, strlen(output_file), strlen(output_file)) eq "/") {
     output_file = substr(output_file, 1, strlen(output_file) - 1);
-}
-
+} 
 set terminal output_file_type size y_resolution, x_resolution font font.", ".font_size background rgb background_colour;
+
+
+#set terminal x11; 
 set output output_file.".".output_file_type;
 set key off;
-set tics scale 0;
+#set mouse mouseformat 3; 
+set view 45,300;
+
+set xlabel x_label;
+set ylabel y_label;
+#set yrange [:0]
 
 
+rgb(r,g,b) = 65536 * int(r * 256) + 256 * int(g * 256) + int(b * 256);
 
-rgb(r,g,b) = 65536 * int(r * 256) + 256 * int(g * 256) + int(b * 256)
+set multiplot layout 1, 2;
 
-set multiplot layout 1, 3;
+set size 1, 1;
+if (is_folder) {
+    pwd = GPVAL_PWD;
+    cd data_folder;
+    splot for [data in data_files] data using (column(5)):(column(6)):1:(rgb($2, $3, $4)) with lines lc rgb variable; 
+`
+    cd pwd;
+} else {
+    splot data_folder using 0:0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+};
+
 
 unset xlabel;
 unset ylabel;
@@ -64,51 +71,7 @@ set label 1 column_label_3 at screen x_triangle, y_triangle centre textcolor rgb
 set label 2 column_label_2 at screen x_triangle + triangle_size, y_triangle centre textcolor rgb "black";
 set label 3 column_label_1 at screen x_triangle + triangle_size / 2, y_triangle + triangle_size centre textcolor rgb "black";
 plot 'colour_triangle.png' binary filetype=png with rgbalpha;
-set xlabel;
-set ylabel y_label;
-set border;
-
-set label 3 x_label at screen (2 - sqrt(2)), 0.02 centre;
-set xtics (sprintf("%3.2f", sqrt(2) * k_scale) 0, \
-    sprintf("%3.2f", 1.00 * k_scale) (max_row / 2) - ((sqrt(2) / 2) * (max_row / 2)), \
-    sprintf("%3.2f", 0.50 * k_scale) (max_row / 2) - ((sqrt(2) / 4) * (max_row / 2)), \
-    "0.00" (max_row / 2), \
-    sprintf("%3.2f", 0.50 * k_scale) ((3 * max_row) / 4), \
-    sprintf("%3.2f", 1.00 * k_scale) (max_row - 2));
-
-set ytics
-set size (2 - sqrt(2)), (1 - 0.03);
-set origin 0, 0.03
-set rmargin 0
-set xrange [0:(max_row / 2)]
-set yrange [min_y:max_y]
-
-#set yrange [min_y:0]
 
 
-if (is_folder) {
-    pwd = GPVAL_PWD;
-    cd data_folder;
-    plot for [data in data_files] data using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
-    cd pwd;
-} else {
-    plot data_folder using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
-};
-
-set size (sqrt(2) - 1), (1 - 0.03);
-set lmargin 0
-unset rmargin
-set origin (2 - sqrt(2)), 0.03;
-unset ylabel
-set ytics font ",0"
-set xrange [((max_row / 2)):max_row]
-if (is_folder) {
-    pwd = GPVAL_PWD;
-    cd data_folder;
-    plot for [data in data_files] data using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
-    cd pwd;
-} else {
-    plot data_folder using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
-};
-
-unset multiplot
+#pause mouse keypress;  
+unset multiplot;
