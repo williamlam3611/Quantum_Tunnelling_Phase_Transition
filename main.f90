@@ -48,9 +48,9 @@ program main
     integer                     :: min_band           = -1
     integer                     :: max_band           = -1
     integer                     :: min_state          = -1
-    integer                     :: max_state          = 20
+    integer                     :: max_state          = 32
     real*8                      :: energy_min         = -1d0
-    real*8                      :: energy_max         = 0.10d0
+    real*8                      :: energy_max         = 0.0d0
     
     
     integer                     :: x_offset           = 0
@@ -96,7 +96,8 @@ program main
     real*8,         allocatable :: contribution_cpu(:, :, :) , contribution(:, :, :)                             
     real*8,         allocatable :: energymap_cpu(:, :), energymap(:, :)
     
-    character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir, gamma_dir
+    character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir, &
+                                   gamma_dir, x_dir, m_dir
     
     integer                     :: i, j, k, l, m, e, n, start_time
     
@@ -135,7 +136,7 @@ program main
         !variation_parameter_list(i) = well_2_start_depth  
         
         !!! variation of width 
-        well_2_stop = i -1 
+        well_2_stop = i - 1 
         variation_parameter_list(i) = well_2_stop
         
         
@@ -230,12 +231,15 @@ program main
     cbm = hqtlib_find_energy_min(hr, hrw, num_layers)
     energy_min = energy_min + cbm
     energy_max = energy_max + cbm
+    j = 0
+    k = 0
+    if (energy_min == -1d0 + cbm) j = 1
+    if (energy_max == -1d0 + cbm) k = 1
     
     ! Determine Maximum number of bands
     do i = 1, num_variation
-        
-        if (energy_min == -1d0 + cbm) energy_min = hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening)
-        if (energy_max == -1d0 + cbm) energy_max = hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening)
+        if (j == 1) energy_min = hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening)
+        if (k == 1) energy_max = hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening)
         max_num_states(i) = hqtlib_find_max_num_states(hr, hrw, pot(i, :), energy_min, energy_max)
         if (max_num_states(i) == 0) then
             max_num_states(i) = 3        !######
@@ -245,6 +249,9 @@ program main
         end if
         energy_range(i, :) = route_range_double(energy_min, energy_max, num_energy) - cbm
     end do
+    !!!
+    max_num_states = max_state
+    !!!
     
     ! Determine bounds
     if (max_state > maxval(max_num_states)) max_state = maxval(max_num_states)
@@ -278,6 +285,8 @@ program main
             "       Avg Total      Avg Well 1      Avg Well 2    Avg Well Sum")
         call export_vstack(trim(path)//"variation_parameter_list.dat", variation_parameter_list)
         gamma_dir = export_create_dir(trim(path), "Gamma")
+        x_dir = export_create_dir(trim(path), "X")
+        m_dir = export_create_dir(trim(path), "M")
     end if
     
     ! Determine CPU Work
@@ -418,9 +427,9 @@ program main
                               x_triangle = 0.75d0, &
                               y_triangle = 0.75d0, &
                               triangle_size = 0.15d0, &
-                              column_label_1 = "1", &
-                              column_label_2 = "2", &
-                              column_label_3 = "3")
+                              column_label_1 = "d_{xy}", &
+                              column_label_2 = "d_{xz}", &
+                              column_label_3 = "d_{yz}")
             call export_hstack(trim(variation_dir)//"band structure.dat",  log(sum(sum(heatmap, 2), 2)))                  
             call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(variation_dir))
             energymap_dir = export_create_dir(trim(variation_dir), "Energy_map")
@@ -520,10 +529,18 @@ program main
                 /), (/ 1, 8 /)))
             !!!
             !print*, energymap
-            do j = 1, max_state -min_state + 1
+            do j = 1, max_state - min_state + 1
                 call export_vstack(trim(gamma_dir)//"energy_level_"//export_to_string(j)//".dat", &
                     (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
                     contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 , & 
+                    variation_parameter_list(i)/))
+                call export_vstack(trim(x_dir)//"energy_level_"//export_to_string(j)//".dat", &
+                    (/ energymap(size(kp), j), contribution(size(kp), 1, j) - 0.00000001, &
+                    contribution(size(kp), 2, j) + 0.000000005, contribution(size(kp), 3, j) + 0.000000005 , & 
+                    variation_parameter_list(i)/))
+                call export_vstack(trim(m_dir)//"energy_level_"//export_to_string(j)//".dat", &
+                    (/ energymap(1, j), contribution(1, 1, j) - 0.00000001, &
+                    contribution(1, 2, j) + 0.000000005, contribution(1, 3, j) + 0.000000005 , & 
                     variation_parameter_list(i)/))
                     
             end do
@@ -550,6 +567,26 @@ program main
                 !!!
                 call graph_colour(data_folder = trim(gamma_dir), &
                               output_file = trim(gamma_dir), &
+                              x_label = "energy states [eV]", &
+                              y_label = "Qunatum well potential [eV]", &
+                              x_triangle = 0.2d0, &
+                              y_triangle = 0.2d0, &
+                              triangle_size = 0.15d0, &
+                              column_label_1 = "d_{xy}", &
+                              column_label_2 = "d_{xz}", &
+                              column_label_3 = "d_{yz}")
+                call graph_colour(data_folder = trim(x_dir), &
+                              output_file = trim(x_dir), &
+                              x_label = "energy states [eV]", &
+                              y_label = "Qunatum well potential [eV]", &
+                              x_triangle = 0.2d0, &
+                              y_triangle = 0.2d0, &
+                              triangle_size = 0.15d0, &
+                              column_label_1 = "d_{xy}", &
+                              column_label_2 = "d_{xz}", &
+                              column_label_3 = "d_{yz}")
+                call graph_colour(data_folder = trim(m_dir), &
+                              output_file = trim(m_dir), &
                               x_label = "energy states [eV]", &
                               y_label = "Qunatum well potential [eV]", &
                               x_triangle = 0.2d0, &
