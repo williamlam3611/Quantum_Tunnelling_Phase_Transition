@@ -19,7 +19,7 @@ module cpu
     end interface cpu_sum
     
     interface cpu_broadcast
-        module procedure cpu_broadcast_integer, cpu_broadcast_double, cpu_broadcast_double_complex
+        module procedure cpu_broadcast_integer, cpu_broadcast_double, cpu_broadcast_double_complex, cpu_broadcast_logical
     end interface cpu_broadcast
     
 contains
@@ -112,8 +112,21 @@ contains
             id = target_id
         end if
         call MPI_BCAST(v, length, MPI_DOUBLE_PRECISION, id, MPI_COMM_WORLD, cpu_error)
-    
     end subroutine cpu_broadcast_double
+        
+    subroutine cpu_broadcast_logical(v, length, target_id)
+        integer, intent(in)    :: length
+        logical, intent(inout) :: v
+        integer, optional      :: target_id
+        integer                :: id = cpu_master_id 
+        if (.not. cpu_started) then
+            call cpu_start()
+        end if
+        if (present(target_id)) then
+            id = target_id
+        end if
+        call MPI_BCAST(v, length, MPI_DOUBLE_PRECISION, id, MPI_COMM_WORLD, cpu_error)       
+    end subroutine cpu_broadcast_logical
     
     subroutine cpu_broadcast_double_complex(v, length, target_id)
         integer,    intent(in)    :: length

@@ -218,7 +218,7 @@ contains
         character(:), allocatable :: format
         integer                   :: file_number
         integer                   :: i, j
-        format = "F16.8"
+        format = "F25.8" !"F16.8"
         if (present(fmt)) then
             format = fmt
         end if
@@ -384,7 +384,7 @@ contains
         integer                   :: status
         integer                   :: file_number_read, file_number_write
         integer                   :: i, j
-        format = "F16.8"
+        format = "F25.8" !"F16.8"
         if (present(fmt)) then
             format = fmt
         end if

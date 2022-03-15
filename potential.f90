@@ -17,6 +17,7 @@ contains
         do i = 1, finish - start + 1
             potential(i) = potential(i) + (final_depth - initial_depth) * (i - 1) / (finish - start)
         end do
+
     end if
     do i = 1, size(potential)
         if (1 <= start + i - 1 .and. start + i - 1 <= size(array)) then
@@ -26,7 +27,7 @@ contains
         end if
     end do
     
-    end subroutine potential_add_well    
+    end subroutine potential_add_well  
     
     subroutine potential_add_well_curve_width(array, start_ly,initial_depth, a, c, width)
     ! for varying width 
