@@ -10,16 +10,16 @@ output = a.out
 .PHONEY : debug clean run
 
 default :
-	$(compiler) $(compiler_flags) $(modules) $(target) -o $(output) $(libraries)
+	@$(compiler) $(compiler_flags) $(modules) $(target) -o $(output) $(libraries)
 	
 run : default
-	mpirun -np 4 ./a.out
-	make clean
+	@mpirun -np 4 ./a.out
+	@make clean --no-print-directory
 	
 debug : 
-	$(compiler) $(compiler_flags_debug) $(modules) $(target) -o $(output) $(libraries)
-	mpirun -np 4 ./a.out
-	make clean
+	@$(compiler) $(compiler_flags_debug) $(modules) $(target) -o $(output) $(libraries)
+	@mpirun -np 4 ./a.out
+	@make clean --no-print-directory
 	
 clean :
-	rm *.o *.mod
+	@rm --recursive --force *.o *.mod *.swp || true

@@ -18,7 +18,7 @@ interface export_vstack
 end interface export_vstack
 
 interface export_to_string
-    module procedure export_to_string_integer, export_to_string_double
+    module procedure export_to_string_integer, export_to_string_double, export_to_string_logical
 end interface export_to_string
 
 
@@ -75,25 +75,51 @@ contains
     
     end function export_create_dir
         
-    function export_to_string_integer(value) result(string)
+    function export_to_string_integer(value, filler) result(string)
         integer,      intent(in)  :: value
-        character(256)            :: buffer
+        character,    optional    :: filler
+        character                 :: filler_character
+        character(16)             :: buffer
         character(:), allocatable :: string
-        write(buffer, "(I6.1)") value
+        integer                   :: i
+        filler_character = " "
+        if (present(filler)) filler_character = filler
+        write(buffer, "(I16)") value
+        i = index(buffer, " ", back = .true.)
         buffer = adjustl(buffer)
-        string = trim(buffer)
+        string = trim(adjustl(repeat(filler_character, i)//buffer))
     
     end function export_to_string_integer
     
-    function export_to_string_double(value) result(string)
+    function export_to_string_double(value, filler) result(string)
         real*8,       intent(in)  :: value
-        character(256)            :: buffer
+        character,    optional    :: filler
+        character                 :: filler_character
+        character(16)             :: buffer
         character(:), allocatable :: string
+        integer                   :: i
+        filler_character = " "
+        if (present(filler)) filler_character = filler
         write(buffer, "(F16.8)") value
+        i = index(buffer, " ", back = .true.)
         buffer = adjustl(buffer)
-        string = trim(buffer)
+        string = trim(adjustl(repeat(filler_character, i)//buffer))
     
     end function export_to_string_double
+    
+    function export_to_string_logical(value) result(string)
+        logical,      intent(in)  :: value
+        character(16)             :: buffer
+        character(:), allocatable :: string
+        integer                   :: i
+        if (value) then
+            write(buffer, "(I1)") 1
+        else
+            write(buffer, "(I1)") 0
+        end if
+        string = trim(adjustl(buffer))
+    
+    end function export_to_string_logical
     
     subroutine export_vstack_character(path, data, fmt)
         character(*), intent(in)  :: path

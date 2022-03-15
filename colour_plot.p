@@ -47,7 +47,7 @@ set size 1, 1;
 if (is_folder) {
     pwd = GPVAL_PWD;
     cd data_folder;
-    plot for [data in data_files] data using (column(variation_column_index_int+0)):1:(rgb($2, $3, $4)) with lines lc rgb variable;
+    plot for [data in data_files] data using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
     cd pwd;
 } else {
     plot data_folder using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
@@ -63,6 +63,6 @@ set origin x_triangle, y_triangle;
 set label 1 column_label_3 at screen x_triangle, y_triangle centre textcolor rgb "black";
 set label 2 column_label_2 at screen x_triangle + triangle_size, y_triangle centre textcolor rgb "black";
 set label 3 column_label_1 at screen x_triangle + triangle_size / 2, y_triangle + triangle_size centre textcolor rgb "black";
-plot 'colour_triangle.png' binary filetype=png with rgbalpha;
+plot 'triangle.png' binary filetype=png with rgbalpha;
 
 unset multiplot;

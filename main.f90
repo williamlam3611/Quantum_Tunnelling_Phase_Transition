@@ -16,18 +16,13 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_variation      = 2 !50
+    integer,        parameter   :: num_variation      = 3 !50
     integer,        parameter   :: num_layers         = 60! 120 ! 150
     
-    integer                     :: well_1_start       = 1 
-    integer                     :: well_1_stop        = 1 
-    real*8                      :: well_1_start_depth = 0d0
-    real*8                      :: well_1_stop_depth  = 0d0
-    
-    integer                     :: well_2_start       = 1!6
-    integer                     :: well_2_stop        = 10!45!20
-    real*8                      :: well_2_start_depth = -0.2d0 !-0.5d0
-    real*8                      :: well_2_stop_depth  = 0! -0.1d0! 0d0
+    integer                     :: well_start         = 1!6
+    integer                     :: well_stop          = 10!45!20
+    real*8                      :: well_start_depth   = -0.2d0 !-0.5d0
+    real*8                      :: well_stop_depth    = 0! -0.1d0! 0d0
 
     real*8                      :: c_parameter = 0.09 !0.01 +0.5
     
@@ -38,8 +33,8 @@ program main
     real*8                      :: a_parameter = 2.5
         
     
-    integer,        parameter   :: num_k_length       = 120! 256
-    integer,        parameter   :: num_energy         = 120! 256
+    integer,        parameter   :: num_k_length       = 128! 256
+    integer,        parameter   :: num_energy         = 128! 256
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
     
@@ -48,16 +43,16 @@ program main
     integer                     :: min_band           = -1
     integer                     :: max_band           = -1
     integer                     :: min_state          = -1
-    integer                     :: max_state          = 10
+    integer                     :: max_state          = -1
     real*8                      :: energy_min         = -1d0
-    real*8                      :: energy_max         = 0.15d0
+    real*8                      :: energy_max         = 0d0
     
     
     integer                     :: x_offset           = 0
     character(*),   parameter   :: x_label            = "Surface Layer Doping [-0.1eV]"
     
     character(*),   parameter   :: input_file         = "SrTiO3_hr.dat"
-    character(*),   parameter   :: out_dir            = "./out/"
+    character(*),   parameter   :: out_dir            = "./out/3d/"
     real*8,         parameter   :: crystal_length     = 3.905d-10
     
     real*8,         parameter   :: lattice(3, 3)      = reshape((/ 1d0, 0d0, 0d0, &
@@ -97,17 +92,9 @@ program main
     real*8,         allocatable :: energymap_cpu(:, :), energymap(:, :)
     
     character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir, gamma_dir, &
-                                   variation_of_width_dir, variation_of_depth_dir
+                                   m_dir, x_dir
     
     integer                     :: i, j, k, l, m, e, n, start_time
-    
-    integer                     :: gamma_k_pos, cpu_from, stat
-    
-    logical                     :: exists
-    
-    CHARACTER(len=255) :: cwd
-    
-    real*8                      :: width, depth
     
     !!!
     ! for 3D plotting 
@@ -140,8 +127,8 @@ program main
     
 
     do loop_count_i = 1, num_variation
-        !well_2_start_depth = (loop_count_i-1) * -0.05!-0.005d0
-        well_2_start_depth = (loop_count_i) * -0.0125 !-0.05!-0.005d0
+        !well_start_depth = (loop_count_i-1) * -0.05!-0.005d0
+        well_start_depth = -0.0125d0 * loop_count_i !-0.05!-0.005d0
         
 
         do i = 1, num_variation
@@ -151,63 +138,36 @@ program main
             
             
             !!! variation of potential (depth)
-            !well_2_start_depth = (i-1) * -0.005d0
-            !variation_parameter_list(i) = well_2_start_depth  
+            !well_start_depth = (i-1) * -0.005d0
+            !variation_parameter_list(i) = well_start_depth  
             
             !!! variation of width 
-            !well_2_stop = i -1 
-            !variation_parameter_list(i) = well_2_stop
+            !well_stop = i -1 
+            !variation_parameter_list(i) = well_stop
                         
             !! for 3D plotting
-            well_2_stop = i +1
+            well_stop = i + 3
             
             
-            variation_parameter_depth( (loop_count_i -1) * num_variation + i  ) = well_2_start_depth
-            variation_parameter_width( (loop_count_i -1) * num_variation + i ) = well_2_stop
+            variation_parameter_depth( (loop_count_i -1) * num_variation + i  ) = well_start_depth
+            variation_parameter_width( (loop_count_i -1) * num_variation + i ) = well_stop
 
             ! -------------------------------------------------------------------------------------------------------------------------
             
             ! Set Up Potential
             !call potential_add_well(pot(i, :), well_1_start, well_1_stop, well_1_start_depth, well_1_stop_depth)
-            call potential_add_well(pot( (loop_count_i-1)*num_variation + i , :), well_2_start, well_2_stop, &
-            well_2_start_depth, well_2_stop_depth)
+            call potential_add_well(pot( (loop_count_i-1)*num_variation + i , :), well_start, well_stop, &
+            well_start_depth, well_stop_depth)
                  
         end do
     end do 
         
     ! Extract Data
-    if (cpu_is_master()) then
-        call import_data(input_file, hr, hrw, max_hopping, num_bands)
-    end if
-    call cpu_broadcast(max_hopping, 1)
-    call cpu_broadcast(num_bands, 1)
-    if (.not. cpu_is_master()) then
-        allocate(hr(2 * max_hopping + 1, 2 * max_hopping + 1, 2 * max_hopping + 1, num_bands, num_bands))
-        allocate(hrw(2 * max_hopping + 1, 2 * max_hopping + 1, 2 * max_hopping + 1))
-    end if
-    call cpu_broadcast(hr, size(hr))
-    call cpu_broadcast(hrw, size(hrw))
+    call import_data(input_file, hr, hrw, max_hopping, num_bands)
     
     ! Build Route
-    if (cpu_is_master()) then
-        call route_build(kx, ky, kw, kp, num_k_length, length_scale, &
-            lattice, positions, atom_types)
-        i = size(kw)
-        j = size(kp)
-    end if
-
-    call cpu_broadcast(i, 1)
-    call cpu_broadcast(j, 1)
-    if (.not. cpu_is_master()) then
-        allocate(kx(i))
-        allocate(ky(i))
-        allocate(kw(i))
-        allocate(kp(j))
-    end if
-    call cpu_broadcast(kx, size(kx))
-    call cpu_broadcast(ky, size(ky))
-    call cpu_broadcast(kw, size(kw))
-    call cpu_broadcast(kp, size(kp))
+    call route_build(kx, ky, kw, kp, num_k_length, length_scale, &
+        lattice, positions, atom_types)
     
     ! Produce inverse path mapping kw -> kp
     allocate(kl(size(kw)))
@@ -220,24 +180,26 @@ program main
     cbm = hqtlib_find_energy_min(hr, hrw, num_layers)
     energy_min = energy_min + cbm
     energy_max = energy_max + cbm
+    j = 0
+    k = 0
+    if (energy_min == -1d0 + cbm) j = 1
+    if (energy_max == -1d0 + cbm) k = 1
     
     ! Determine Maximum number of bands
     do i = 1, num_variation* num_variation
-        
-        if (energy_min == -1d0 + cbm) energy_min = hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening)
-        if (energy_max == -1d0 + cbm) energy_max = hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening)
+        if (j == 1) energy_min = hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening)
+        if (k == 1) energy_max = hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening)
+        energy_range(i, :) = route_range_double(&
+                                merge(hqtlib_find_energy_min(hr, hrw, pot(i, :), broadening), energy_min, j == 1), &
+                                merge(hqtlib_find_energy_max(hr, hrw, pot(i, :), length_scale, broadening), energy_max, k == 1), &
+                                num_energy) - cbm
         max_num_states(i) = hqtlib_find_max_num_states(hr, hrw, pot(i, :), energy_min, energy_max)
-        if (max_num_states(i) == 0) then
-            max_num_states(i) = 3        !######
-        end if
         if (max_state .ne. -1 .and. max_num_states(i) > max_state) then
             max_num_states(i) = max_state
         end if
-        energy_range(i, :) = route_range_double(energy_min, energy_max, num_energy) - cbm
     end do
     
     ! Determine bounds
-    if (max_state > maxval(max_num_states)) max_state = maxval(max_num_states)
     if (max_layer == -1) max_layer = num_layers
     if (min_layer == -1) min_layer = 1
     if (max_band == -1) max_band = num_bands
@@ -264,34 +226,11 @@ program main
     if (cpu_is_master()) then
         path = export_create_dir(out_dir, "Run ")
         call export_vstack(trim(path)//"density.dat", &
-            "#          Total  Quantum Well 1  Quantum Well 2             Sum"// &
-            "       Avg Total      Avg Well 1      Avg Well 2    Avg Well Sum")
-        
-        do i = 1, size(variation_parameter_width)
-            call export_vstack(trim(path)//"variation_parameter_list.dat", (/ variation_parameter_width(i), &
-            variation_parameter_depth(i) /)   )
-        end do 
-        
-        
+            "#          Total    Quantum Well")
         
         gamma_dir = export_create_dir(trim(path), "Gamma")
-        
-        variation_of_width_dir = trim(export_create_dir(trim(gamma_dir), "variation_of_width"))
-        variation_of_depth_dir = trim(export_create_dir(trim(gamma_dir), "variation_of_depth"))
-        
-        do i= 1, num_variation
-        
-
-            dir = trim(trim(variation_of_width_dir)// export_to_string(i)//"/" )
-            
-            call execute_command_line("mkdir -p """//dir//"""") 
-            
-            dir = trim(trim(variation_of_depth_dir)//trim(export_to_string(int(variation_parameter_width(i)))))//" slabs"//"/"
-            call execute_command_line("mkdir -p """//dir//"""")   
-        
-        
-        end do 
-        
+        m_dir     = export_create_dir(trim(path), "M")
+        x_dir     = export_create_dir(trim(path), "X")
     end if
     
     ! Determine CPU Work
@@ -315,9 +254,6 @@ program main
             contribution = 0d0
         end if
         
-        ! determine gamma point 
-        gamma_k_pos  = size(kw)
-        !gamma_energy = 0d0
         ! Spectral into Density and Heatmap
         if (cpu_is_master()) then
             write(*, fmt = "(A)", advance = "no") "  Generate Data: "
@@ -326,34 +262,40 @@ program main
         end if
         
         do k = k_start, k_stop
-            call hqtlib_find_energy_and_weight(energy, weight, num_found, kx(k), ky(k), hr, hrw, pot(i, :), 1, &
-            max_num_states(i))
-            energy(:num_found) = energy(:num_found) - cbm
-                        
-            ! Density
-            den_cpu = den_cpu + kw(k) * hqtlib_find_density(energy(:num_found), weight(:, :num_found), energy_range(i, :), &
-                                                            broadening, num_bands, crystal_length, sum(kw), &
-                                                            min_layer, max_layer, min_band, max_band, min_state, max_state)
-            
-            
-            if (kl(k) .ne. -1) then ! True if on Path
-                ! Heatmap
-                heatmap_cpu(kl(k), :, :, :) = sum(hqtlib_find_spectral_distribution(energy(:num_found), &
-                weight(:, :num_found), energy_range(i, :), broadening, num_bands, &
-                min_layer, max_layer, min_band, max_band, min_state, max_state), 1)
+            if (max_num_states(i) .ne. 0)  then
+                call hqtlib_find_energy_and_weight(energy, weight, num_found, kx(k), ky(k), &
+                    hr, hrw, pot(i, :), min_state, max_num_states(i))
+                energy(:num_found) = energy(:num_found) - cbm
                 
-                ! Energy Structure
-                energymap_cpu(kl(k) , :num_found)  = energy(:num_found)
+                ! Density
+                den_cpu = den_cpu + kw(k) * hqtlib_find_density(energy(:num_found), weight(:, :num_found), energy_range(i, :), &
+                                                                broadening, num_bands, crystal_length, sum(kw), &
+                                                                min_layer, max_layer, min_band, max_band, min_state, max_state)
                 
-                !print*, size(kx), size(ky), size(kw), size(kp)
-                !print*, k, '...', kl(k), '-->', energy(:num_found)
                 
-                ! Band Contribution
-                contribution_cpu(kl(k), :, :) = sum(hqtlib_find_band_contribution(energy(:num_found), weight(:, :num_found), &
-                                                                                  num_bands, &
-                                                            min_layer, max_layer, min_band, max_band, min_state, max_state), 1)
+                if (kl(k) .ne. -1) then ! True if on Path
+                    ! Heatmap
+                    heatmap_cpu(kl(k), :, :, :) = sum(hqtlib_find_spectral_distribution(energy(:num_found), &
+                        weight(:, :num_found), energy_range(i, :), broadening, num_bands, &
+                        min_layer, max_layer, min_band, max_band, min_state, max_state), 1)
+                    
+                    ! Energy Structure
+                    do j = 1, num_found
+                        if (energy(j) > maxval(energy_range(i, :))) then
+                            energymap_cpu(kl(k), j) = maxval(energy_range(i, :))
+                        else if (energy(j) < minval(energy_range(i, :))) then
+                            energymap_cpu(kl(k), j) = minval(energy_range(i, :))
+                        else
+                            energymap_cpu(kl(k), j) = energy(j)
+                        end if
+                    end do
+                    
+                    ! Band Contribution
+                    contribution_cpu(kl(k), :, :) = sum(hqtlib_find_band_contribution(energy(:num_found), weight(:, :num_found), &
+                                                                                      num_bands, &
+                                                                min_layer, max_layer, min_band, max_band, min_state, max_state), 1)
+                end if
             end if
-            
             if (cpu_is_master()) call main_status(k - k_start + 1, k_stop - k_start + 1, start_time)
         end do
         if (cpu_is_master()) then
@@ -361,17 +303,11 @@ program main
             write(*, fmt = "(A)") "100%"
         end if
         
-        if (cpu_is_master()) then
-            !call cpu_recv_double(gamma_energy, size(gamma_energy),  MPI_ANY_SOURCE , i)
-            !gamma_energy_list(i,:) = gamma_energy
-        end if 
-        
-        den_cpu        = den_cpu * 1d-18
+        den_cpu     = den_cpu * 1d-18
+        heatmap_cpu = heatmap_cpu + 1d0
         call cpu_sum(den_cpu, den)
         call cpu_sum(heatmap_cpu, heatmap)
         call cpu_sum(energymap_cpu, energymap)
-
-        
         call cpu_sum(contribution_cpu, contribution)
         
         ! No more multithreading for rest of cycle
@@ -380,16 +316,17 @@ program main
                 write(*, fmt = "(A)", advance = "no") "  Plot Data:     "
                 call system_clock(start_time)
             end if
-            ! Export Meta Data
+            
+            ! Variation Meta Data
             variation_dir = export_create_dir(trim(path), "Variation "//export_to_string(i))
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 "#      Num K Len      Num Layers      Num Path K Num Path Energy")
             call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ num_k_length, num_layers,     size(kp),       num_energy /))
+                (/   num_k_length,     num_layers,       size(kp),     num_energy /))
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 "#     Broadening Crystal Len (a)   K Len [2pi*a]")
             call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ broadening, crystal_length * 1d10, length_scale /))
+                (/     broadening, crystal_length * 1d10, length_scale /))
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 "#            Min             Max")
             call export_vstack(trim(variation_dir)//"meta.dat", &
@@ -404,100 +341,89 @@ program main
                 (/ "            ", "            ", "            ", "            ", "            ", &
                 " # Potential", " # Density  ", " # Heatmap y", " # Heatmap c" /))
               
-            ! Export and Plot Variation Data
-            !call export_hstack(trim(variation_dir)//"gamma_energy.dat",    gamma_energy)
-            call export_hstack(trim(variation_dir)//"potential.dat",       pot(i, :))
-            call graph_basic_plot("potential", "potential", 1, "Layer", "Potential [eV]", 1, trim(variation_dir))
-            call export_hstack(trim(variation_dir)//"density.dat",         sum(sum(den, 2), 2))
-            call export_hstack(trim(variation_dir)//"density.dat",         transpose(sort_normalise(sum(den, 3))))
-            call graph_colour(data_folder = trim(variation_dir)//"density.dat", &
-                              output_file = trim(variation_dir)//"density", &
-                              x_label = "Layer", &
-                              y_label = "Carrier Density [nm^{-2}]", &
-                              x_triangle = 0.75d0, &
-                              y_triangle = 0.75d0, &
-                              triangle_size = 0.15d0, &
-                              column_label_1 = "1", &
-                              column_label_2 = "2", &
-                              column_label_3 = "3")
-            call export_hstack(trim(variation_dir)//"band structure.dat",  log(sum(sum(heatmap, 2), 2)))                  
-            call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(variation_dir))
-            energymap_dir = export_create_dir(trim(variation_dir), "Energy_map")
-            do j = 1, maxval(max_num_states)
-                call export_hstack(trim(energymap_dir)//"Energy_level"//export_to_string(j)//".dat", energymap(:, j))
-                call export_hstack(trim(energymap_dir)//"Energy_level"//export_to_string(j)//".dat", &
-                                   transpose(contribution(:, :, j)))
-            end do
-            call graph_colour_MGX(data_folder = trim(energymap_dir), &
-                              output_file = trim(energymap_dir), &
-                              x_label = "K_{M Γ X} [π/a]", &
-                              y_label = "E - E_{cbm} [ev]", &
-                              x_triangle = 0.2d0, &
-                              y_triangle = 0.2d0, &
-                              triangle_size = 0.15d0, &
+            ! Variation Potential
+            call export_hstack(trim(variation_dir)//"potential.dat", pot(i, :))
+            call graph_basic(data_folder = trim(variation_dir)//"potential.dat", &
+                             output_file = trim(variation_dir)//"potential", &
+                             x_label = "Layer", &
+                             y_label = "Potential [eV]")
+            
+            ! Variation Density
+            call export_hstack(trim(variation_dir)//"density.dat", sum(sum(den, 2), 2))
+            call export_hstack(trim(variation_dir)//"density.dat", transpose(sort_normalise(sum(den, 3))))
+            call graph_colour(data_folder    = trim(variation_dir)//"density.dat", &
+                              output_file    = trim(variation_dir)//"density", &
+                              x_label        = "Layer", &
+                              y_label        = "Carrier Density [nm^{-2}]", &
+                              x_triangle     = 0.75d0, &
+                              y_triangle     = 0.75d0, &
+                              triangle_size  = 0.15d0, &
                               column_label_1 = "d_{xy}", &
-                              column_label_2 = "d_{xz}", &
-                              column_label_3 = "d_{yz}", &
-                              k_scale = length_scale, &
-                              min_y = minval(energy_range(i, :)), &
-                              max_y = maxval(energy_range(i, :)))
-            
-            ! Export and Plot Variation Band Data
-            do j = 1, max_band - min_band + 1
-                band_dir = export_create_dir(trim(variation_dir)//"Bands/", "Band "//export_to_string(j))
-                call export_hstack(trim(band_dir)//"density"//".dat", sum(den(:, j, :), 2))
-                call export_hstack(trim(band_dir)//"band structure"//".dat", log(sum(heatmap(:, j, :, :), 2)))
-                call graph_basic_plot("density", "density", 1, "Layer", "Carrier Density [nm^{-2}]", 1, trim(band_dir))
-                call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(band_dir))
-            end do
-            
-            ! Export and Plot Variation Energy State Data
-            do j = 1, max_num_states(i) - min_state + 1
-                energy_state_dir = export_create_dir(trim(variation_dir)//"Energy States/", "Energy State "//&
-                export_to_string(j))
-                call export_hstack(trim(energy_state_dir)//"density.dat", sum(den(:, :, j), 2))
-                call export_hstack(trim(energy_state_dir)//"density.dat", transpose(sort_normalise(den(:, :, j))))
-                call graph_colour(data_folder = trim(energy_state_dir)//"density.dat", &
-                                  output_file = trim(energy_state_dir)//"density", &
-                                  x_label = "Layer", &
-                                  y_label = "Carrier Density [nm^{-2}]", &
-                                  x_triangle = 0.75d0, &
-                                  y_triangle = 0.75d0, &
-                                  triangle_size = 0.15d0, &
-                                  column_label_1 = "d_{xy}", &
                               column_label_2 = "d_{xz}", &
                               column_label_3 = "d_{yz}")
+                              
+            ! Variation Heatmap                  
+            call export_hstack(trim(variation_dir)//"band structure.dat",  log(sum(sum(heatmap, 2), 2)))                  
+            call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(variation_dir))
+            
+            ! Variation Energymap
+            energymap_dir = export_create_dir(trim(variation_dir), "Energymap")
+            do j = 1, maxval(max_num_states) - min_state + 1
+                call export_hstack(trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", energymap(:, j))
+                call export_hstack(trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                                   transpose(contribution(:, :, j)))
+            end do
+            call graph_colour_MGX(data_folder    = trim(energymap_dir), &
+                                  output_file    = trim(energymap_dir), &
+                                  x_label        = "K_{M Γ X} [π/a]", &
+                                  y_label        = "E - E_{cbm} [ev]", &
+                                  x_triangle     = 0.2d0, &
+                                  y_triangle     = 0.2d0, &
+                                  triangle_size  = 0.15d0, &
+                                  column_label_1 = "d_{xy}", &
+                                  column_label_2 = "d_{xz}", &
+                                  column_label_3 = "d_{yz}", &
+                                  k_scale        = length_scale, &
+                                  min_y          = minval(energy_range(i, :)), &
+                                  max_y          = maxval(energy_range(i, :)))
+            
+            do j = 1, max_num_states(i) - min_state + 1
+                energy_state_dir = export_create_dir(trim(variation_dir)//"Energy States/", &
+                    "Energy State "//export_to_string(j))
+                    
+                ! Variation Energy State Density
+                call export_hstack(trim(energy_state_dir)//"density.dat", sum(den(:, :, j), 2))
+                call export_hstack(trim(energy_state_dir)//"density.dat", transpose(sort_normalise(den(:, :, j))))
+                call graph_colour(data_folder    = trim(energy_state_dir)//"density.dat", &
+                                  output_file    = trim(energy_state_dir)//"density", &
+                                  x_label        = "Layer", &
+                                  y_label        = "Carrier Density [nm^{-2}]", &
+                                  x_triangle     = 0.75d0, &
+                                  y_triangle     = 0.75d0, &
+                                  triangle_size  = 0.15d0, &
+                                  column_label_1 = "d_{xy}", &
+                                  column_label_2 = "d_{xz}", &
+                                  column_label_3 = "d_{yz}")
+                                  
+                ! Variation Energy State Heatmap
                 call export_hstack(trim(energy_state_dir)//"band structure"//".dat", log(sum(heatmap(:, :, j, :), 2)))
                 call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(energy_state_dir))
-                ! Bands
-                do n = 1, max_band - min_band + 1
-                    band_dir = export_create_dir(trim(energy_state_dir)//"Bands/", "Band " &
-                        //export_to_string(n))
-                    call export_hstack(trim(band_dir)//"density"//".dat", &
-                        den(:, n, j))
-                    call export_hstack(trim(band_dir)//"band structure"//".dat", &
-                        log(heatmap(:, n, j, :)))
-                    call graph_basic_plot("density", "density", &
-                        1, "Layer", "Carrier Density [nm^{-2}]", 1, trim(band_dir))
-                    call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(band_dir))
-                end do
-                ! Energy Map
-                energymap_dir = export_create_dir(trim(energy_state_dir), "Energy_map")
-                call export_hstack(trim(energymap_dir)//"Energy_level.dat", energymap(:, j))
-                call export_hstack(trim(energymap_dir)//"Energy_level.dat", transpose(contribution(:, :, j)))
-                call graph_colour_MGX(data_folder = trim(energymap_dir), &
-                              output_file = trim(energymap_dir), &
-                              x_label = "K_{M Γ X} [π/a]", &
-                              y_label = "E - E_{cbm} [ev]", &
-                              x_triangle = 0.2d0, &
-                              y_triangle = 0.2d0, &
-                              triangle_size = 0.15d0, &
-                              column_label_1 = "d_{xy}", &
-                              column_label_2 = "d_{xz}", &
-                              column_label_3 = "d_{yz}", &
-                              k_scale = length_scale, &
-                              min_y = minval(energy_range(i, :)), &
-                              max_y = maxval(energy_range(i, :)))
+                
+                ! Variation Energy State Energymap
+                call graph_colour_MGX(data_folder    = trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                                      output_file    = trim(energy_state_dir)//"Energymap", &
+                                      x_label        = "K_{M Γ X} [π/a]", &
+                                      y_label        = "E - E_{cbm} [ev]", &
+                                      x_triangle     = 0.2d0, &
+                                      y_triangle     = 0.2d0, &
+                                      triangle_size  = 0.15d0, &
+                                      column_label_1 = "d_{xy}", &
+                                      column_label_2 = "d_{xz}", &
+                                      column_label_3 = "d_{yz}", &
+                                      k_scale        = length_scale, &
+                                      min_y          = minval(energy_range(i, :)), &
+                                      max_y          = maxval(energy_range(i, :)))
+                              
                 if (cpu_is_master()) call main_status(j, max_state - min_state + 1, start_time)
             end do
             if (cpu_is_master()) then
@@ -505,294 +431,184 @@ program main
                 write(*, fmt = "(A)") "100%"
             end if
             
-            ! Export and Plot Data
-            call export_vstack(trim(path)//"density.dat", reshape((/ &
-                sum(den), &
-                sum(den(well_1_start:well_1_stop, :, :)), &
-                sum(den(well_2_start:well_2_stop, :, :)), &
-                sum(den(well_1_start:well_1_stop, :, :)) + &
-                    sum(den(well_2_start:well_2_stop, :, :)), &
-                sum(den) / size(den), &
-                sum(den(well_1_start:well_1_stop, :, :)) / (abs(well_1_stop - well_1_start) + 1), &
-                sum(den(well_2_start:well_2_stop, :, :)) / (abs(well_2_stop - well_2_start) + 1), &
-                sum(den(well_1_start:well_1_stop, :, :)) + &
-                sum(den(well_2_start:well_2_stop, :, :)) / (abs(well_1_stop + well_2_stop - well_1_start - well_2_start) + 2) &
-                /), (/ 1, 8 /)))
-            !!!
-            do j = 1, max_state -min_state + 1
-                !call export_vstack(trim(gamma_dir)//"energy_level_"//export_to_string(j)//".dat", &
-                !    (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
-                !    contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 , & 
-                !    variation_parameter_list(i)/))
-                
-                call export_vstack(trim(gamma_dir)//"energy_level_"//export_to_string(j)//".dat", &
-                    (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
-                    contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 , & 
-                    variation_parameter_width(i), variation_parameter_depth(i)/))
-                
-                
-                
-                ! for variation of width 
-                do k = 0, num_variation -1 
-                    
-                    ! for folder 'variation_of_width'
-                    if ((floor(real((i-1)/num_variation)) == k)) then 
-
-
-                     dir = trim(trim(variation_of_width_dir)// export_to_string(k + 1)//"/" )
-                    
-                    
-                    
-                     call export_vstack(dir//&
-                     "energy_level_"//export_to_string(j)//".dat", &
-                        (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
-                        contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 , & 
-                        variation_parameter_width(i), variation_parameter_depth(i)/)) 
-                            
-                     end if 
-                    
-                    ! for folder 'variation_of_depth'                 
-                    if (( modulo(i, num_variation) == k+ 1)) then 
-                    dir = trim(trim(variation_of_depth_dir)//trim(export_to_string(int(variation_parameter_width(k + 1)))))// &
-                    " slabs"//"/"
-                     call export_vstack(dir//&
-                     "energy_level_"//export_to_string(j)//".dat", &
-                        (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
-                        contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 , & 
-                        variation_parameter_width(i), variation_parameter_depth(i)/)) 
-                                             
-                     end if                    
-                end do    
-                
-               
-                ! for folder 'variation_of_depth' 
-                 if (( modulo(i, num_variation) == 0)) then 
-
-                 dir = trim(trim(variation_of_depth_dir)//&
-                 trim(export_to_string(int(variation_parameter_width(num_variation)))))// &
-                " slabs"//"/"
-                 call export_vstack(dir//&
-                 "energy_level_"//export_to_string(j)//".dat", &
-                    (/ energymap((size(kp)+1) / 2, j), contribution((size(kp)+1) / 2, 1, j)- 0.00000001, &
-                    contribution((size(kp)+1) / 2, 2, j)+ 0.000000005, contribution((size(kp)+1) / 2, 3, j) + 0.000000005 , & 
-                    variation_parameter_width(i), variation_parameter_depth(i)/))                     
-                 
-                 end if 
-                        
-            end do
-            !!!
-
-            ! to produce summary.dat
-            if (cpu_is_master()) then
-            
-                inquire(file = trim(gamma_dir)//"gamma_summary.dat", exist = exists)
-                
-                if (exists) then 
-                    open(unit=111, file=trim(gamma_dir)//"gamma_summary.dat", status='old')
-                    close(111, status='delete')                        
-                end if 
-
-                if (.not. allocated(data_copied)) then 
-                    allocate(data_copied(maxval(max_num_states), i, 6))
-                else 
-                    deallocate(data_copied)
-                    allocate(data_copied(maxval(max_num_states), i, 6))
-                end if 
-                
-                data_copied = 0d0
-                
-                do j = 1, maxval(max_num_states)
-                    dir = trim(gamma_dir)//"energy_level_"//export_to_string(j)//".dat"
-                    nlines = i
-                    OPEN (j* 100, file = dir, status = 'old')
-                        do k = 1, nlines 
-                            read( j* 100, * ) &
-                                   data_copied(j, k, 1), data_copied(j, k, 2), data_copied(j, k, 3), data_copied(j, k, 4),&
-                                   data_copied(j, k, 5), data_copied(j, k, 6)  
-               
-                        end do 
-       
-                    CLOSE (unit = j* 100)
-                end do
-                                    
-                open(newunit = file_number, file = trim(gamma_dir)//"gamma_summary.dat", &
-                status = "new", position = "append", action = "write", form = "formatted")
-
-                do j = 1, size(data_copied(:, 1, 1))
-                    do k = 1, size(data_copied(1, :, 1))
-                        write(file_number, fmt = "(F16.8, F16.8, F16.8, F16.8, F16.8, F16.8)" ) data_copied(j, k, :)
-                        
-                        if ( modulo(k, num_variation) == 0) then 
-                            write(file_number, fmt = *)
-                        
-                        end if 
-                    end do
-                    write(file_number, fmt = *)
-                    write(file_number, fmt = *)
-                end do                    
-                close(file_number) 
-
-            end if 
-                
+            ! Total Density
+            call export_vstack(trim(path)//"Total_Density.dat", sum(den))
+            call export_vstack(trim(path)//"Quantum_Well_Density.dat", sum(den(well_start:well_stop, :, :)))
             if (i > 2) then
-                call graph_basic_plot("density", "Total_Density", &
-                    1, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                call graph_basic_plot("density", "reservoir_density", &
-                    2, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                call graph_basic_plot("density", "transport_density", &
-                    3, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                call graph_basic_plot("density", "reservoir_plus_transport_density", &
-                    4, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                call graph_basic_plot("density", "Average_Total_Density", &
-                    5, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                call graph_basic_plot("density", "Average_reservoir_density", &
-                    6, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                call graph_basic_plot("density", "Average_transport_density", &
-                    7, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                call graph_basic_plot("density", "Average_reservoir_plus_transport_density", &
-                    8, x_label, "Carrier Density [nm^{-2}]", x_offset, trim(path))
-                       
-                 do k = 0, num_variation -1 
-
-                    if ( ceiling(i/num_variation * 1.00) >= k+1 ) then 
-                        dir = trim(trim(variation_of_width_dir)// export_to_string(k+1)//"/" )
-                        call graph_colour(data_folder = trim(dir), &
-                                      output_file = trim(dir)//"gamma_variation_of_width", &
-                                      x_label = "Potential Width", &
-                                      y_label = "Energy Levels [eV]", &
-                                      x_triangle = 0.2d0, &
-                                      y_triangle = 0.2d0, &
-                                      triangle_size = 0.15d0, &
-                                      column_label_1 = "d_{xy}", &
-                                      column_label_2 = "d_{xz}", &
-                                      column_label_3 = "d_{yz}", &
-                                      variation_column_index = 'width')              
-                     end if  
-                   
-                   
-                   
-                   if (floor(i/num_variation * 1.00) >= 3) then 
-                        dir = trim(trim(variation_of_depth_dir)//&
-                        trim(export_to_string(int(variation_parameter_width(k + 1)))))//" slabs"//"/"
-                        
-                        call graph_colour(data_folder = trim(dir), &
-                                      output_file = trim(dir)//"gamma_variation_of_depth", &
-                                      x_label = "Potential Depth [eV]", &
-                                      y_label = "Energy Levels [eV]", &
-                                      x_triangle = 0d0, &
-                                      y_triangle = 0.9d0, &
-                                      triangle_size = 0.15d0, &
-                                      column_label_1 = "d_{xy}", &
-                                      column_label_2 = "d_{xz}", &
-                                      column_label_3 = "d_{yz}", &
-                                      variation_column_index = 'depth')         
-                    end if             
-                 
-                 
-                 end do                                  
-                    
-                plotted = .false.
-                ! for non-rotable 3D plot image 
-                !call graph_colour_3D(data_folder = trim(gamma_dir), &
-                !              output_file = trim(gamma_dir)//"gamma_variation_3D", &
-                !              x_label = "Potential Width", &
-                !              y_label = "Potential Depth", &
-                !              z_label = "Energy Levels [eV]", &
-                !              x_triangle = 0.2d0, &
-                !              y_triangle = 0.2d0, &
-                !              triangle_size = 0.15d0, &
-                !              column_label_1 = "d_{xy}", &
-                !              column_label_2 = "d_{xz}", &
-                !              column_label_3 = "d_{yz}", plotted = plotted)
-                          
+                call graph_basic(data_folder = trim(path)//"Total_Density.dat", &
+                                 output_file = trim(path)//"Total_Density", &
+                                 x_label = x_label, &
+                                 y_label = "Carrier Density [nm^{-2}]")
+                call graph_basic(data_folder = trim(path)//"Quantum_Well_Density.dat", &
+                                 output_file = trim(path)//"Quantum_Well_Density", &
+                                 x_label = x_label, &
+                                 y_label = "Carrier Density [nm^{-2}]")
+            end if
             
-                !call graph_colour_3D_view_2(data_folder = trim(gamma_dir), &
-                !              output_file = trim(gamma_dir)//"gamma_variation_3D_view2", &
-                !              x_label = "Potential Width", &
-                !              y_label = "Potential Depth", &
-                !              z_label = "Energy Levels [eV]", &
-                !              x_triangle = 0.2d0, &
-                !              y_triangle = 0.2d0, &
-                !              triangle_size = 0.15d0, &
-                !              column_label_1 = "d_{xy}", &
-                !              column_label_2 = "d_{xz}", &
-                !              column_label_3 = "d_{yz}", plotted = plotted)                          
-                 
-
-                !for non-rotable 3D plot image 
-                call graph_colour_3D_surface(data_folder = trim(gamma_dir)//"gamma_summary.dat", &
-                              output_file = trim(gamma_dir)//"gamma_variation_3D_surface", &
-                              x_label = "Potential Width", &
-                              y_label = "Potential Depth", &
-                              z_label = "Energy Levels [eV]", &
-                              x_triangle = 0.02d0, &
-                              y_triangle = 0.08d0, &
-                              triangle_size = 0.15d0, &
-                              column_label_1 = "d_{xy}", &
-                              column_label_2 = "d_{xz}", &
-                              column_label_3 = "d_{yz}", plotted = plotted)              
-                 
-                call graph_colour_3D_view_2_surface(data_folder = trim(gamma_dir)//"gamma_summary.dat", &
-                              output_file = trim(gamma_dir)//"gamma_variation_3D_surface_view2", &
-                              x_label = "Potential Width", &
-                              y_label = "Potential Depth", &
-                              z_label = "Energy Levels [eV]", &
-                              x_triangle = 0.02d0, &
-                              y_triangle = 0.08d0, &
-                              triangle_size = 0.15d0, &
-                              column_label_1 = "d_{xy}", &
-                              column_label_2 = "d_{xz}", &
-                              column_label_3 = "d_{yz}", plotted = plotted)                     
-                 
-                 ! for rotatable 3D plot
-                 if (plotted) then 
-                     if (i == num_variation * num_variation) then 
-                        !call graph_colour_3D_rotatable(data_folder = trim(gamma_dir), &
-                        !              output_file = trim(gamma_dir)//"gamma_variation_3D_rotatable", &
-                        !              x_label = "Potential Width", &
-                        !             y_label = "Potential Depth", &
-                        !              z_label = "Energy Levels [eV]", &
-                        !              x_triangle = 0.2d0, &
-                        !              y_triangle = 0.2d0, &
-                        !              triangle_size = 0.15d0, &
-                        !              column_label_1 = "d_{xy}", &
-                        !              column_label_2 = "d_{xz}", &
-                        !              column_label_3 = "d_{yz}", &
-                        !              output_file_type = 'gnu')   
-                        
-                        call graph_colour_3D_rotatable_surface(data_folder = "gamma_summary", &
-                                      output_file = trim(gamma_dir)//"gamma_variation_3D_rotatable", &
-                                      x_label = "Potential Width", &
-                                      y_label = "Potential Depth", &
-                                      z_label = "Energy Levels [eV]", &
-                                      x_triangle = 0.02d0, &
-                                      y_triangle = 0.08d0, &
-                                      triangle_size = 0.15d0, &
-                                      column_label_1 = "d_{xy}", &
-                                      column_label_2 = "d_{xz}", &
-                                      column_label_3 = "d_{yz}", &
-                                      output_file_type = 'gnu', &
-                                      folder = trim(gamma_dir))                   
-
-                        call graph_colour_3D_rotatable_animation(data_folder = "gamma_summary", &
-                                      output_file = trim(gamma_dir)//"rot.gif", &
-                                      x_label = "Potential Width", &
-                                      y_label = "Potential Depth", &
-                                      z_label = "Energy Levels [eV]", &
-                                      x_triangle = 0.02d0, &
-                                      y_triangle = 0.08d0, &
-                                      triangle_size = 0.15d0, &
-                                      column_label_1 = "d_{xy}", &
-                                      column_label_2 = "d_{xz}", &
-                                      column_label_3 = "d_{yz}", &
-                                      output_file_type = 'gnu', &
-                                      folder = trim(gamma_dir))                         
-                        
-                        
-                                      
-                     end if 
-                end if              
-                
+            ! Symmetry Point Energymap
+            do j = 1, max_state - min_state + 1
+                ! Gamma
+                call export_vstack(trim(gamma_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                    (/ variation_parameter_width(i), variation_parameter_depth(i), energymap((size(kp)+1) / 2, j), &
+                    contribution((size(kp)+1) / 2, 1, j), & ! Light Band
+                    dble(j) / dble(max_state - min_state + 1), & ! Seperate same Band Colours
+                    (contribution((size(kp)+1) / 2, 2, j) + contribution((size(kp)+1) / 2, 3, j)) &
+                    /)) ! Heavy Band
+                ! M
+                call export_vstack(trim(m_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                    (/ variation_parameter_width(i), variation_parameter_depth(i), energymap(1, j), &
+                    contribution(1, 1, j), & ! Light Band
+                    dble(j) / dble(max_state - min_state + 1), & ! Seperate same Band Colours
+                    (contribution(1, 2, j) + contribution(1, 3, j)) /)) ! Heavy Band
+                ! X
+                call export_vstack(trim(x_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                    (/ variation_parameter_width(i), variation_parameter_depth(i), energymap(size(kp), j), &
+                    contribution(size(kp), 1, j), & ! Light Band
+                    dble(j) / dble(max_state - min_state + 1), & ! Seperate same Band Colours
+                    (contribution(size(kp), 2, j) + contribution(size(kp), 3, j)) /)) ! Heavy Band
+            end do
+            if (i == num_variation**2) then
+                ! Gamma
+                call graph_colour_3d(trim(gamma_dir), trim(path)//"Gamma_Fence", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "fence", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(gamma_dir), trim(path)//"Gamma_Surface", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "surface", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(gamma_dir), trim(path)//"Gamma_Seperate", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "none", &
+                                     plot_type          = "seperate", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0, &
+                                     has_axis           = .false.)
+                ! M
+                call graph_colour_3d(trim(m_dir), trim(path)//"M_Fence", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "fence", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(m_dir), trim(path)//"M_Surface", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "surface", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(m_dir), trim(path)//"M_Seperate", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "none", &
+                                     plot_type          = "seperate", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0, &
+                                     has_axis           = .false.)
+               ! X
+               call graph_colour_3d(trim(x_dir), trim(path)//"X_Fence", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "fence", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(x_dir), trim(path)//"X_Surface", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "surface", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(x_dir), trim(path)//"X_Seperate", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "none", &
+                                     plot_type          = "seperate", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0, &
+                                     has_axis           = .false.)
             end if
             
             write(*, fmt = "(A10, I4.1, A9)") "Variation ", i, " complete"

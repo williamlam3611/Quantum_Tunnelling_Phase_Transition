@@ -63,7 +63,7 @@ set origin x_triangle, y_triangle;
 set label 1 column_label_3 at screen x_triangle, y_triangle centre textcolor rgb "black";
 set label 2 column_label_2 at screen x_triangle + triangle_size, y_triangle centre textcolor rgb "black";
 set label 3 column_label_1 at screen x_triangle + triangle_size / 2, y_triangle + triangle_size centre textcolor rgb "black";
-plot 'colour_triangle.png' binary filetype=png with rgbalpha;
+plot 'triangle.png' binary filetype=png with rgbalpha;
 set xlabel;
 set ylabel y_label;
 set border;
