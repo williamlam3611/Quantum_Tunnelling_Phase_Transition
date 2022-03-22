@@ -44,7 +44,7 @@ program main
     real*8                      :: alpha              = 0.2d0
     real*8, parameter           :: relative_permativity = 330
     real*8                      :: permativity        = relative_permativity * 8.85418782d-12
-    real*8                      :: r_sensitivity      = 0.001d0
+    real*8                      :: r_sensitivity      = 0.01d0
     
     real*8,         parameter   :: lattice(3, 3)      = reshape((/ 1d0, 0d0, 0d0, &
                                                                 0d0, 1d0, 0d0, &
@@ -82,7 +82,7 @@ program main
     real*8,         allocatable :: contribution_cpu(:, :, :) , contribution(:, :, :)                             
     real*8,         allocatable :: energymap_cpu(:, :), energymap(:, :)
     
-    character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir
+    character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir, poisson_dir
     
     real*8                      :: r, r_max
     
@@ -299,6 +299,17 @@ program main
                              output_file = trim(variation_dir)//"potential", &
                              x_label = "Layer", &
                              y_label = "Potential [eV]")
+                             
+            ! Poisson Potential
+            poisson_dir = export_create_dir(trim(path), "Poisson")
+            call export_hstack(trim(poisson_dir)//"current_potential.dat", pot)
+            pot_new = 0d0
+            call potential_add_well(pot_new, well_start, well_stop, well_start_depth, well_stop_depth)
+            call export_hstack(trim(poisson_dir)//"normal_potential.dat", pot_new)
+            call graph_basic(data_folder = trim(poisson_dir), &
+                             output_file = trim(path)//"potential", &
+                             x_label = "Layer", &
+                             y_label = "Potential [eV]")
             
             ! Variation Density
             call export_hstack(trim(variation_dir)//"density.dat", sum(sum(den, 2), 2))
@@ -406,7 +417,7 @@ program main
             r_max = 0d0
             den = 1d18 * den
             do z = 2, well_stop - 1
-                r = -1.602d-19 * (sum(den(z, :, :)) - density_cbm(z)) / (crystal_length * permativity) &
+                r = -1d0 * -1.602d-19 * (sum(den(z, :, :)) - density_cbm(z)) / (crystal_length * permativity) &
                     - (pot(z + 1) - 2 * pot(z) + pot(z - 1)) / crystal_length**2
                 pot_new(z) = pot(z) - alpha * r * crystal_length**2
                 if (abs(r) > r_max) r_max = abs(r * crystal_length**2)
