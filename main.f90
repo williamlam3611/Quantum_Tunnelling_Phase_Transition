@@ -16,7 +16,7 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_variation      = 3 !50
+    integer,        parameter   :: num_variation      = 20 !50
     integer,        parameter   :: num_layers         = 60! 120 ! 150
     
     integer                     :: well_start         = 1!6
@@ -92,7 +92,7 @@ program main
     real*8,         allocatable :: energymap_cpu(:, :), energymap(:, :)
     
     character(256)              :: path, variation_dir, band_dir, energy_state_dir, energymap_dir, gamma_dir, &
-                                   m_dir, x_dir
+                                   m_dir, x_dir, gx_dir, gm_dir
     
     integer                     :: i, j, k, l, m, e, n, start_time
     
@@ -231,6 +231,8 @@ program main
         gamma_dir = export_create_dir(trim(path), "Gamma")
         m_dir     = export_create_dir(trim(path), "M")
         x_dir     = export_create_dir(trim(path), "X")
+        gx_dir     = export_create_dir(trim(path), "GX")
+        gm_dir     = export_create_dir(trim(path), "GM")
     end if
     
     ! Determine CPU Work
@@ -466,6 +468,18 @@ program main
                     contribution(size(kp), 1, j), & ! Light Band
                     dble(j) / dble(max_state - min_state + 1), & ! Seperate same Band Colours
                     (contribution(size(kp), 2, j) + contribution(size(kp), 3, j)) /)) ! Heavy Band
+                ! GX
+                call export_vstack(trim(gx_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                    (/ variation_parameter_width(i), variation_parameter_depth(i), energymap((size(kp)+1) * 9/16, j), &
+                    contribution((size(kp)+1) * 9/16, 1, j), & ! Light Band
+                    dble(j) / dble(max_state - min_state + 1), & ! Seperate same Band Colours
+                    (contribution((size(kp)+1) * 9/16, 2, j) + contribution((size(kp)+1) * 9/16, 3, j)) /)) ! Heavy Band
+                ! GM
+                call export_vstack(trim(gm_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                    (/ variation_parameter_width(i), variation_parameter_depth(i), energymap((size(kp)+1) * 7/16, j), &
+                    contribution((size(kp)+1) * 7/16, 1, j), & ! Light Band
+                    dble(j) / dble(max_state - min_state + 1), & ! Seperate same Band Colours
+                    (contribution((size(kp)+1) * 7/16, 2, j) + contribution((size(kp)+1) * 7/16, 3, j)) /)) ! Heavy Band
             end do
             if (i == num_variation**2) then
                 ! Gamma
@@ -594,6 +608,100 @@ program main
                                      transparency       = 0.5d0, &
                                      pitch              = 75d0)
                 call graph_colour_3d(trim(x_dir), trim(path)//"X_Seperate", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "none", &
+                                     plot_type          = "seperate", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0, &
+                                     has_axis           = .false.)
+                ! GX
+                call graph_colour_3d(trim(gx_dir), trim(path)//"GX_Fence", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "fence", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(gx_dir), trim(path)//"GX_Surface", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "surface", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(gx_dir), trim(path)//"GX_Seperate", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "none", &
+                                     plot_type          = "seperate", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0, &
+                                     has_axis           = .false.)
+                ! GM
+                call graph_colour_3d(trim(gm_dir), trim(path)//"GM_Fence", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "fence", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(gm_dir), trim(path)//"GM_Surface", &
+                                     x_label            = "Width [Layer]", &
+                                     y_label            = "Depth [eV]", &
+                                     z_label            = "E - E_{cbm} [ev]", &
+                                     z_max              = maxval(energy_range), &
+                                     z_min              = minval(energy_range), &
+                                     colour_box_x       = 0.9d0, &
+                                     colour_box_y       = 0.5d0, &
+                                     colour_box_size    = 0.1d0, &
+                                     colour_box_type    = "box", &
+                                     plot_type          = "surface", &
+                                     colour_box_label_1 = "Light", &
+                                     colour_box_label_2 = "Heavy", &
+                                     transparency       = 0.5d0, &
+                                     pitch              = 75d0)
+                call graph_colour_3d(trim(gm_dir), trim(path)//"GM_Seperate", &
                                      x_label            = "Width [Layer]", &
                                      y_label            = "Depth [eV]", &
                                      z_label            = "E - E_{cbm} [ev]", &

@@ -226,7 +226,7 @@ contains
                                    min_layer, max_layer, min_band, max_band, min_state, max_state), 4)
         density = density * (1d0 / 3.141592653589793d0) &
                           * (1d0 / dble(num_k)) &
-                          * ((energy_range(2) - energy_range(1)) / size(energy_range)) &
+                          * (energy_range(2) - energy_range(1)) &
                           * (1d0 / crystal_length**2)
     
     end function hqtlib_find_density_range

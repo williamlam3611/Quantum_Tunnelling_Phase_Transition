@@ -2,11 +2,9 @@ module graph
     use export
     implicit none
 
-    public :: graph_basic, graph_heatmap_plot, graph_multiple_plot, graph_multiple_coloured, graph_multiple_coloured_MGX, &
-              graph_colour, graph_colour_MGX, graph_colour_3D, graph_colour_3D_rotatable, graph_colour_3D_view_2, &
-              graph_colour_3D_surface, graph_colour_3D_view_2_surface, graph_colour_3D_rotatable_surface, &
-              graph_colour_3D_rotatable_animation
-
+    public :: graph_basic, graph_heatmap_plot, graph_multiple_plot, graph_multiple_coloured, &
+              graph_colour, graph_colour_MGX, graph_colour_3D
+              
 contains
     subroutine graph_basic(data_folder, output_file, output_file_type, y_resolution, x_resolution, font, font_size, &
                            background_colour, x_label, y_label)
