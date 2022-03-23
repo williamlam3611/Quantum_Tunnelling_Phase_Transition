@@ -33,10 +33,39 @@ set ylabel y_label;
 set tics scale 0;
 
 if (is_folder) {
+    if (!exists("data_folder_2")){
     pwd = GPVAL_PWD;
     cd data_folder;
     plot for [data in data_files] data using 0:1 with lines linewidth 2 linecolor rgbcolor 'blue';
     cd pwd;
+    } else {
+    
+
+    array file_name[2]
+    array colour_array[2]
+    file_name[1] = data_folder
+    file_name[2] = data_folder_2
+    colour_array[1] = 'blue'
+    colour_array[2] = 'red'
+    plot for [i=1:2] file_name[i] with lines linewidth 2 linecolor rgbcolor colour_array[i];
+    };
 } else {
-    plot data_folder using 0:1 with lines linewidth 2 linecolor rgbcolor 'blue';
+    if (!exists("data_folder_2")){    
+        plot data_folder using 0:1 with lines linewidth 2 linecolor rgbcolor 'blue';
+    } else {
+
+         array file_name[2]
+        array colour_array[2]
+        file_name[1] = data_folder
+        file_name[2] = data_folder_2
+        colour_array[1] = 'blue'
+        colour_array[2] = 'red'
+
+
+    if (!exists("zoom_layer")){        
+        plot for [i=1:2] file_name[i] with lines linewidth 2 linecolor rgbcolor colour_array[i];
+    } else {
+    plot for [i=1:2] file_name[i] every ::0::zoom_layer  with lines linewidth 2 linecolor rgbcolor colour_array[i];
+           }        
+    }
 };

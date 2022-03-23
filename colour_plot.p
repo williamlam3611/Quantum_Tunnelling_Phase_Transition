@@ -50,7 +50,19 @@ if (is_folder) {
     plot for [data in data_files] data using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
     cd pwd;
 } else {
-    plot data_folder using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+    if (!exists("data_folder_2")){
+        plot data_folder using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+    } else {
+        
+        array file_name[2]
+        file_name[1] = data_folder
+        file_name[2] = data_folder_2
+
+        plot for [i=1:2] file_name[i] using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+
+        #plot data_folder_1 using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+        #replot data_folder_2 using 0:1:(rgb($2, $3, $4)) with lines lc rgb variable;
+    }
 };
 
 unset xlabel;

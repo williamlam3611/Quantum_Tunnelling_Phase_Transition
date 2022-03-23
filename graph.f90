@@ -6,15 +6,16 @@ module graph
               graph_colour, graph_colour_MGX, graph_colour_3D
               
 contains
-    subroutine graph_basic(data_folder, output_file, output_file_type, y_resolution, x_resolution, font, font_size, &
-                           background_colour, x_label, y_label)
-        character(*), optional :: data_folder
+    subroutine graph_basic(data_folder, data_folder_2, output_file, output_file_type, y_resolution, x_resolution, &
+                           font, font_size, &
+                           background_colour, x_label, y_label, zoom_layer)
+        character(*), optional :: data_folder, data_folder_2
         character(*), optional :: output_file
         character(*), optional :: output_file_type
         integer,      optional :: y_resolution
         integer,      optional :: x_resolution
         character(*), optional :: font
-        integer,      optional :: font_size
+        integer,      optional :: font_size, zoom_layer
         character(*), optional :: background_colour
         character(*), optional :: x_label
         character(*), optional :: y_label
@@ -22,6 +23,7 @@ contains
         
         call graph_buffer(buffer, "gnuplot -e """)
         if (present(data_folder)) call graph_buffer(buffer, "data_folder = '"//data_folder//"';")
+        if (present(data_folder_2)) call graph_buffer(buffer, "data_folder_2 = '"//data_folder_2//"';")
         if (present(output_file)) call graph_buffer(buffer, "output_file = '"//output_file//"';")
         if (present(output_file_type)) call graph_buffer(buffer, "output_file_type = '"//output_file_type//"';")
         if (present(y_resolution)) call graph_buffer(buffer, "y_resolution = '"//export_to_string(y_resolution)//"';")
@@ -31,11 +33,12 @@ contains
         if (present(background_colour)) call graph_buffer(buffer, "background_colour = '"//background_colour//"';")
         if (present(x_label)) call graph_buffer(buffer, "x_label = '"//x_label//"';")
         if (present(y_label)) call graph_buffer(buffer, "y_label = '"//y_label//"';")
+        if (present(zoom_layer)) call graph_buffer(buffer, "zoom_layer = '"//export_to_string(zoom_layer)//"';")
         call graph_buffer(buffer, """ basic_plot.p")
         call execute_command_line(graph_to_string(buffer))
         
     end subroutine graph_basic
-
+    
     subroutine graph_multiple_plot(data_file, output_file, x_label, y_label, x_offset, path)
         character(*), intent(in) :: data_file, output_file, x_label, y_label, path
         integer,      intent(in) :: x_offset ! data_column, 
@@ -70,10 +73,11 @@ contains
             //""" colour_plot.p")
     end subroutine graph_multiple_coloured
     
-    subroutine graph_colour(data_folder, output_file, output_file_type, y_resolution, x_resolution, font, font_size, &
+    subroutine graph_colour(data_folder,data_folder_2, output_file, output_file_type, y_resolution, x_resolution, &
+                            font, font_size, &
                             background_colour, x_label, y_label, x_triangle, y_triangle, triangle_size, &
                             column_label_1, column_label_2, column_label_3)
-        character(*), optional :: data_folder
+        character(*), optional :: data_folder, data_folder_2
         character(*), optional :: output_file
         character(*), optional :: output_file_type
         integer,      optional :: y_resolution
@@ -93,6 +97,7 @@ contains
         
         call graph_buffer(buffer, "gnuplot -e """)
         if (present(data_folder)) call graph_buffer(buffer, "data_folder = '"//data_folder//"';")
+        if (present(data_folder_2)) call graph_buffer(buffer, "data_folder_2 = '"//data_folder_2//"';")
         if (present(output_file)) call graph_buffer(buffer, "output_file = '"//output_file//"';")
         if (present(output_file_type)) call graph_buffer(buffer, "output_file_type = '"//output_file_type//"';")
         if (present(y_resolution)) call graph_buffer(buffer, "y_resolution = '"//export_to_string(y_resolution)//"';")
