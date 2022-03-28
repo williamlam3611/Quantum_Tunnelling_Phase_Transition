@@ -16,15 +16,15 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_layers         = 150! 30! 120 ! 150
+    integer,        parameter   :: num_layers         = 30!150! 30! 120 ! 150
     
     integer                     :: well_start         = 1!6
-    integer                     :: well_stop          = 10!45!20
-    real*8                      :: well_start_depth   = -0.1d0!-2d0 !-0.5d0
+    integer                     :: well_stop          = 20!45!20
+    real*8                      :: well_start_depth   = -0.2d0 !-0.3d0!-2d0 !-0.5d0
     real*8                      :: well_stop_depth    = 0d0! -0.1d0! 0d0
     
-    integer,        parameter   :: num_k_length       = 256!128! 256
-    integer,        parameter   :: num_energy         = 256!128! 256
+    integer,        parameter   :: num_k_length       = 128!192!256!128! 256
+    integer,        parameter   :: num_energy         = 128!192!256!128! 256
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
     
@@ -41,10 +41,16 @@ program main
     character(*),   parameter   :: out_dir            = "./out/poisson/"
     real*8,         parameter   :: crystal_length     = 3.905d-10
     
-    real*8                      :: alpha              = 0.2d0
-    real*8, parameter           :: relative_permativity = 330
-    real*8                      :: permativity        = relative_permativity * 8.85418782d-12
-    real*8                      :: r_sensitivity      = 0.001d0
+    real*8                      :: alpha              = 0.5d0
+    real*8,         parameter   :: x_0                = 300
+    real*8                      :: relative_permativity 
+    real*8                      :: permativity
+    real*8                      :: epsilon_0          = 8.85418782d-12
+    real*8,         parameter   :: crit_field         = 470d3 * 1d2 !(unit: 470 kVm-1)
+    real*8                      :: r_sensitivity      = 0.000001d0 !0.001d0
+    real*8                      :: e_field 
+    real*8  ,       allocatable :: dielectric_array(:) 
+    
     
     real*8,         parameter   :: lattice(3, 3)      = reshape((/ 1d0, 0d0, 0d0, &
                                                                 0d0, 1d0, 0d0, &
@@ -90,6 +96,8 @@ program main
 
     real*8                      :: energy_min_p     
     real*8                      :: energy_max_p    
+    
+    real*8,         allocatable :: density_bulk(:,:,:)
    
     call cpu_start()
     if (cpu_is_master()) then
@@ -102,7 +110,7 @@ program main
      energy_max_p = energy_max
     
     ! Set R Sensitivity
-    r_sensitivity = r_sensitivity * max(abs(well_start_depth), abs(well_stop_depth))
+    !r_sensitivity = r_sensitivity * max(abs(well_start_depth), abs(well_stop_depth))
     
     ! Set Up potentials
     pot     = 0d0
@@ -166,6 +174,7 @@ program main
         allocate(energymap(      size(kp),   max_state - min_state + 1))
         allocate(contribution(   size(kp),   max_band - min_band + 1, max_state - min_state + 1))
     end if
+    allocate(dielectric_array(num_layers-1))
     
     ! Determine Density Conducting band minimum
     den_cpu = 0d0
@@ -323,6 +332,12 @@ program main
                                  y_label = "Potential [eV]", zoom_layer = 20)                                                         
             end if 
             
+            !save layer 1 
+            if (i ==1) then 
+                density_bulk = den 
+            end if 
+            
+            
             ! Variation Density
             call export_hstack(trim(variation_dir)//"density.dat", sum(sum(den, 2), 2))
             call export_hstack(trim(variation_dir)//"density.dat", transpose(sort_normalise(sum(den, 3))))
@@ -442,9 +457,36 @@ program main
             pot_new(well_stop) = well_stop_depth
             r_max = 0d0
             den = 1d18 * den
+            dielectric_array = 0d0
+            
+            ! to save dielectric 
+            do z = 1, num_layers - 1
+                e_field = -1 * (pot(z + 1) - pot(z))/ (crystal_length)
+                relative_permativity = 1 + x_0 /( 1+ e_field/crit_field )
+                dielectric_array(z) = relative_permativity
+            end do
+            
+            
             do z = 2, well_stop - 1
+                e_field = -1 * (pot(z + 1) - pot(z))/ (crystal_length)
+                relative_permativity = 1 + x_0 /( 1+ e_field/crit_field )
+                permativity        = relative_permativity * 8.85418782d-12 
+                
+                
                 r = -(pot(z + 1) - 2 * pot(z) + pot(z - 1)) / crystal_length**2 &
-                    - 1.602d-19 * (sum(den(z, :, :)) - density_cbm(z)) / (crystal_length * permativity) 
+                    - 1.602d-19 * (sum(den(z, :, :)) - sum(density_bulk(z,:,:)) ) / (crystal_length * permativity) 
+                    !- 1.602d-19 * (sum(den(z, :, :)) - density_cbm(z)) / (crystal_length * permativity) 
+                
+                
+                print*, '-------------------------------------------------------------------------------------------'
+                print*, 'e_field', e_field
+                print*, 'relative_permativity', relative_permativity
+                print*, 'layer', z
+                print*, -(pot(z + 1) - 2 * pot(z) + pot(z - 1)) / crystal_length**2
+                print*, 1.602d-19 * (sum(den(z, :, :)) - sum(density_bulk(z,:,:)) ) / (crystal_length * permativity) 
+                print*, '-------------------------------------------------------------------------------------------'
+                
+                
                 pot_new(z) = pot(z) - alpha * r * crystal_length**2
                 if (abs(r) > r_max) r_max = abs(r * crystal_length**2)
             end do
@@ -453,9 +495,22 @@ program main
                 print *, r_max, r_sensitivity
             end if
             !!!! 
+            call export_hstack(trim(variation_dir)//"variable_dielectric.dat", dielectric_array )
+            
+            call graph_basic(data_folder = trim(variation_dir)//"variable_dielectric.dat", &
+                             output_file = trim(variation_dir)//"variable_dielectric", &
+                             x_label = "Layer", &
+                             y_label = "Relative Permitivity")
+
+
         end if
         call cpu_broadcast(pot, size(pot))
         call cpu_broadcast(r_max, 1)
+        
+        
+
+
+
         
     end do
     
