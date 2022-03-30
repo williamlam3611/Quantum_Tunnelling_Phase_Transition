@@ -16,7 +16,7 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_layers         = 30!150! 30! 120 ! 150
+    integer,        parameter   :: num_layers         = 30! 150!  30! 120 ! 150
     
     integer                     :: well_start         = 1!6
     integer                     :: well_stop          = 20!45!20
@@ -97,7 +97,9 @@ program main
     real*8                      :: energy_min_p     
     real*8                      :: energy_max_p    
     
-    real*8,         allocatable :: density_bulk(:,:,:)
+    !real*8,         allocatable :: density_bulk(:,:,:)
+    real*8                      :: density_corrected(num_layers)
+    real*16                     :: sheet_carrier_density
    
     call cpu_start()
     if (cpu_is_master()) then
@@ -333,20 +335,25 @@ program main
             end if 
             
             !save layer 1 
-            if (i ==1) then 
-                density_bulk = den 
-            end if 
+            !if (i ==1) then 
+            !    density_bulk = den 
+            !end if 
             
             
             ! Variation Density
-            call export_hstack(trim(variation_dir)//"density.dat", sum(sum(den, 2), 2))
+            do z = 1, num_layers
+                ! record into cm^-2
+                density_corrected(z) = (sum(den(z, :, :)) - density_cbm(z) * 1d-18) * 1d18 * 1d-4
+            end do 
+            
+            call export_hstack(trim(variation_dir)//"density.dat", density_corrected)
             call export_hstack(trim(variation_dir)//"density.dat", transpose(sort_normalise(sum(den, 3))))
             
             if (i ==1) then 
                 call graph_colour(data_folder    = trim(variation_dir)//"density.dat", &
                                   output_file    = trim(variation_dir)//"density", &
                                   x_label        = "Layer", &
-                                  y_label        = "Carrier Density [nm^{-2}]", &
+                                  y_label        = "Carrier Density [cm^{-2}]", &
                                   x_triangle     = 0.75d0, &
                                   y_triangle     = 0.75d0, &
                                   triangle_size  = 0.15d0, &
@@ -358,7 +365,7 @@ program main
                                   data_folder_2  = trim(variation_dir)//"density.dat", &
                                   output_file    = trim(variation_dir)//"density", &
                                   x_label        = "Layer", &
-                                  y_label        = "Carrier Density [nm^{-2}]", &
+                                  y_label        = "Carrier Density [cm^{-2}]", &
                                   x_triangle     = 0.75d0, &
                                   y_triangle     = 0.75d0, &
                                   triangle_size  = 0.15d0, &
@@ -458,7 +465,10 @@ program main
             r_max = 0d0
             den = 1d18 * den
             dielectric_array = 0d0
+            sheet_carrier_density = 0d0
             
+            
+            sheet_carrier_density = (sum(den(:, :, :)) - sum(density_cbm(:)) ) * 1d-4  ! record to cm^-2
             ! to save dielectric 
             do z = 1, num_layers - 1
                 e_field = -1 * (pot(z + 1) - pot(z))/ (crystal_length)
@@ -474,16 +484,13 @@ program main
                 
                 
                 r = -(pot(z + 1) - 2 * pot(z) + pot(z - 1)) / crystal_length**2 &
-                    - 1.602d-19 * (sum(den(z, :, :)) - sum(density_bulk(z,:,:)) ) / (crystal_length * permativity) 
-                    !- 1.602d-19 * (sum(den(z, :, :)) - density_cbm(z)) / (crystal_length * permativity) 
-                
-                
+                    - 1.602d-19 * (sum(den(z, :, :)) - density_cbm(z) ) / (crystal_length * permativity) 
                 print*, '-------------------------------------------------------------------------------------------'
                 print*, 'e_field', e_field
                 print*, 'relative_permativity', relative_permativity
                 print*, 'layer', z
-                print*, -(pot(z + 1) - 2 * pot(z) + pot(z - 1)) / crystal_length**2
-                print*, 1.602d-19 * (sum(den(z, :, :)) - sum(density_bulk(z,:,:)) ) / (crystal_length * permativity) 
+                print*, 'v_part', -(pot(z + 1) - 2 * pot(z) + pot(z - 1)) / crystal_length**2
+                print*, 'p_part', 1.602d-19 * (sum(den(z, :, :)) - density_cbm(z) ) / (crystal_length * permativity) 
                 print*, '-------------------------------------------------------------------------------------------'
                 
                 
@@ -493,6 +500,7 @@ program main
             pot = pot_new
             if (cpu_is_master()) then
                 print *, r_max, r_sensitivity
+                print*,  'sheet carrier density' ,  sheet_carrier_density, 'cm^-2'
             end if
             !!!! 
             call export_hstack(trim(variation_dir)//"variable_dielectric.dat", dielectric_array )
@@ -501,6 +509,12 @@ program main
                              output_file = trim(variation_dir)//"variable_dielectric", &
                              x_label = "Layer", &
                              y_label = "Relative Permitivity")
+                 
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                ( "sheet carrier density (cm^-2)") )           
+                
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                (/ sheet_carrier_density /))
 
 
         end if
