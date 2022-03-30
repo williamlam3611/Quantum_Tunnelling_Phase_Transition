@@ -1,32 +1,21 @@
-compiler = mpifort
-compiler_flags = -O3 -fbackslash -fopenmp
-compiler_flags_debug = -Og -fbacktrace -fbackslash -fopenmp
+PREFIX ?= /usr/local
 
-libraries = -L/usr/lib -llapack -lblas -lsymspg
-modules = spglib_f08.f90 cpu.f90 timer.f90 import.f90 route.f90 potential.f90 transform.f90 bulk.f90 matrix.f90 sort.f90 spectral.f90 density.f90 export.f90 graph.f90 hqtlib.f90
-target = main.f90
-output = a.out
+.PHONEY : debug install all libhqt clean
 
-.PHONEY : debug clean run poisson_make poisson
+default : all
 
-default :
-	@$(compiler) $(compiler_flags) $(modules) $(target) -o a.out $(libraries)
+install: default
+	@(install -d "$(DESTDIR)$(PREFIX)/lib/")
+	@(install "libhqt.a" "$(DESTDIR)$(PREFIX)/lib/libhqt.a")
 	
-poisson_make :
-	@$(compiler) $(compiler_flags) $(modules) main_poisson.f90 -o b.out $(libraries)
+uninstall: default
+	@(rm -f "$(DESTDIR)$(PREFIX)/lib/libhqt.a")
+
+all: libhqt
 	
-run : default
-	@mpirun -np 4 ./a.out
-	@make clean --no-print-directory
-	
-poisson : poisson_make
-	@mpirun -np 4 ./b.out
-	@make clean --no-print-directory
-	
-debug : 
-	@$(compiler) $(compiler_flags_debug) $(modules) $(target) -o a.out $(libraries)
-	@mpirun -np 4 ./a.out
-	@make clean --no-print-directory
+libhqt:
+	@(cd bin && $(MAKE) -f ../src/Makefile libhqt)
 	
 clean :
-	@rm --recursive --force *.o *.mod *.swp || true
+	@(cd bin && rm -f *.o *.mod *.swp)
+	@(rm -f *.a *.so)

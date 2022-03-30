@@ -1,13 +1,15 @@
 module cpu
     use mpi
+    use constants, only: dp
+    use tool,      only: tool_read
     implicit none
     
-    private :: cpu_sum_double,&
-               cpu_broadcast_integer, cpu_broadcast_double, cpu_broadcast_double_complex
+    private
+    
     public  :: cpu_start, cpu_stop, &
                cpu_get_id, cpu_get_num, cpu_get_master_id, cpu_is_master, &
                cpu_broadcast, cpu_sum, cpu_split_work, &
-               cpu_send_double, cpu_recv_double
+               cpu_send_double, cpu_recv_double, cpu_broadcast_file_content
     
     logical, private, save      :: cpu_started   = .false.
     integer, private, parameter :: cpu_master_id = 0
@@ -19,7 +21,7 @@ module cpu
     end interface cpu_sum
     
     interface cpu_broadcast
-        module procedure cpu_broadcast_integer, cpu_broadcast_double, cpu_broadcast_double_complex
+        module procedure cpu_broadcast_integer, cpu_broadcast_double, cpu_broadcast_double_complex, cpu_broadcast_string
     end interface cpu_broadcast
     
 contains
@@ -100,6 +102,21 @@ contains
     
     end subroutine cpu_broadcast_integer
     
+    subroutine cpu_broadcast_string(v, length, target_id)
+        integer,      intent(in)                 :: length
+        character(:), allocatable, intent(inout) :: v
+        integer, optional                        :: target_id
+        integer                                  :: id = cpu_master_id
+        if (.not. cpu_started) then
+            call cpu_start()
+        end if
+        if (present(target_id)) then
+            id = target_id
+        end if
+        call MPI_BCAST(v, length, MPI_CHAR, id, MPI_COMM_WORLD, cpu_error)
+    
+    end subroutine cpu_broadcast_string
+    
     subroutine cpu_broadcast_double(v, length, target_id)
         integer, intent(in)    :: length
         real*8,  intent(inout) :: v(..)
@@ -129,6 +146,23 @@ contains
         call MPI_BCAST(v, length, MPI_DOUBLE_COMPLEX, id, MPI_COMM_WORLD, cpu_error)
     
     end subroutine cpu_broadcast_double_complex
+    
+    function cpu_broadcast_file_content(file_name, target_id) result(content)
+        character(*), intent(in)      :: file_name
+        integer, optional, intent(in) :: target_id
+        integer                       :: id = cpu_master_id 
+        integer                       :: content_length
+        character(:), allocatable     :: content
+        if (cpu_get_id() == id) then
+            content = tool_read(file_name)
+            content_length = len(content)
+        end if
+        call cpu_broadcast(content_length, 1, id)
+        if (cpu_get_id() .ne. id) allocate(character(content_length) :: content)
+        call cpu_broadcast(content, content_length, id)
+
+    end function cpu_broadcast_file_content
+    
     
     subroutine cpu_send_double(data, count, to, tag)
 

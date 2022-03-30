@@ -1,0 +1,2 @@
+compiler := gfortran
+mpi      := false
