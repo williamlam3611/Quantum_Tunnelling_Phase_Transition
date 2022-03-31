@@ -47,7 +47,7 @@ program main
     real*8                      :: permativity
     real*8                      :: epsilon_0          = 8.85418782d-12
     real*8,         parameter   :: crit_field         = 470d3 * 1d2 !(unit: 470 kVm-1)
-    real*8                      :: r_sensitivity      = 0.000001d0 !0.001d0
+    real*8                      :: r_sensitivity      = 0.0000001d0 !0.001d0
     real*8                      :: e_field 
     real*8  ,       allocatable :: dielectric_array(:) 
     
