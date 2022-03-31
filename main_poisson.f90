@@ -16,15 +16,15 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_layers         = 30! 150!  30! 120 ! 150
+    integer,        parameter   :: num_layers         = 80 !150!  30! 120 ! 150
     
     integer                     :: well_start         = 1!6
-    integer                     :: well_stop          = 20!45!20
+    integer                     :: well_stop          = 80 !45!20
     real*8                      :: well_start_depth   = -0.2d0 !-0.3d0!-2d0 !-0.5d0
     real*8                      :: well_stop_depth    = 0d0! -0.1d0! 0d0
     
-    integer,        parameter   :: num_k_length       = 128!192!256!128! 256
-    integer,        parameter   :: num_energy         = 128!192!256!128! 256
+    integer,        parameter   :: num_k_length       = 60!128!192!256!128! 256
+    integer,        parameter   :: num_energy         = 60!128!192!256!128! 256
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
     
@@ -41,7 +41,7 @@ program main
     character(*),   parameter   :: out_dir            = "./out/poisson/"
     real*8,         parameter   :: crystal_length     = 3.905d-10
     
-    real*8                      :: alpha              = 0.5d0
+    real*8                      :: alpha              = 0.8d0
     real*8,         parameter   :: x_0                = 300
     real*8                      :: relative_permativity 
     real*8                      :: permativity
@@ -331,7 +331,7 @@ program main
                                  data_folder_2 = trim(variation_dir)//"potential.dat", &
                                  output_file = trim(variation_dir)//"potential_zoom", &
                                  x_label = "Layer", &
-                                 y_label = "Potential [eV]", zoom_layer = 20)                                                         
+                                 y_label = "Potential [eV]", zoom_layer = 80)                                                         
             end if 
             
             !save layer 1 
