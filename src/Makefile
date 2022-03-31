@@ -11,9 +11,9 @@ ifeq ($(mpi),true)
 	dependencies += $(parallel_dependencies)
 endif
 
-target := hqt.o
+target := hqt
 ifeq ($(mpi),true)
-	target := hqt_parallel.o
+	target := hqt_parallel
 endif
 
 .PHONEY : debug libhqt $(dependencies)
@@ -21,7 +21,8 @@ endif
 default : hqt
 
 $(dependencies) :
-	@$(compiler) ../src/$@.f90 $(compiler_flags) $(libraries) -c -o $@.o 
+	@($(compiler) ../src/$@.f90 $(compiler_flags) $(libraries) -c -o $@.o)
 
 libhqt: $(dependencies)
-	@ar crv ../libhqt.a $(target)
+	@(ar cr ../libhqt.a $(target).o)
+	@($(compiler) $(target).o $(compiler_flags) $(libraries) -shared -o ../libhqt.so)
