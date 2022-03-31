@@ -41,7 +41,7 @@ program main
     character(*),   parameter   :: out_dir            = "./out/poisson/"
     real*8,         parameter   :: crystal_length     = 3.905d-10
     
-    real*8                      :: alpha              = 0.6d0
+    real*8                      :: alpha              = 0.5d0
     real*8,         parameter   :: x_0                = 300
     real*8                      :: relative_permativity 
     real*8                      :: permativity
