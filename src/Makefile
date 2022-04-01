@@ -1,28 +1,29 @@
-include ../makefile.inc
+include ../make.inc
 
-libraries = -L/usr/lib -llapack -lblas -lsymspg
+libraries := -L/usr/lib -llapack -lblas -lsymspg
 
-serial_dependencies := spglib_f08 constants error tool type matrix schrodinger band_contribution \
-                       spectral_function number_density hqt        
-parallel_dependencies := cpu hqt_parallel
+modules := spglib_f08 constants error tool \
+           type import matrix schrodinger  \
+           band_contribution spectral_function     \
+           number_density
 
-dependencies := $(serial_dependencies)
 ifeq ($(mpi),true)
-	dependencies += $(parallel_dependencies)
+	modules += cpu 
+	modules += hqt.parallel
+else
+	modules += hqt.serial
 endif
 
-target := hqt
-ifeq ($(mpi),true)
-	target := hqt_parallel
-endif
+.PHONEY : debug libhqt $(modules)
 
-.PHONEY : debug libhqt $(dependencies)
+default : libhqt
 
-default : hqt
+$(modules) :
+	@($(compiler) ../src/$@.f90 $(compiler_flags) $(libraries) -c)
 
-$(dependencies) :
-	@($(compiler) ../src/$@.f90 $(compiler_flags) $(libraries) -c -o $@.o)
-
-libhqt: $(dependencies)
-	@(ar cr ../libhqt.a $(target).o)
-	@($(compiler) $(target).o $(compiler_flags) $(libraries) -shared -o ../libhqt.so)
+libhqt: $(modules)
+	@(ar cr ../libhqt.a *.o)
+	@($(compiler) *.o $(compiler_flags) $(libraries) -shared -o ../libhqt.so)
+	@(for module in *.mod; do                    \
+		cp -p $$module ../$$module; \
+	done)

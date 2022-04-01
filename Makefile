@@ -4,20 +4,31 @@ DESTDIR ?= /usr/local
 
 default : all
 
-install: default
+install:
 	@(install -d "$(DESTDIR)/lib/")
-	@(install "libhqt.a" "$(DESTDIR)/lib/libhqt.a")
-	@(install "libhqt.so" "$(DESTDIR)/lib/libhqt.so")
+	@(install libhqt.a "$(DESTDIR)/lib/libhqt.a")
+	@(install libhqt.so "$(DESTDIR)/lib/libhqt.so")
+	@(for module in hqt*.mod; do                    \
+		install $$module "$(DESTDIR)/lib/$$module"; \
+	done)
+	@(echo [hqt] installed)
 	
-uninstall: default
-	@(rm -f "$(DESTDIR)$(PREFIX)/lib/libhqt.a")
-	@(rm -f "$(DESTDIR)$(PREFIX)/lib/libhqt.so")
+uninstall:
+	@(rm -f "$(DESTDIR)/lib/libhqt.a")
+	@(rm -f "$(DESTDIR)/lib/libhqt.so")
+	@(cd "$(DESTDIR)/lib/" && \
+		for module in hqt*.mod; do \
+			rm -f "$$module";        \
+		done)
+	@(echo [hqt] uninstalled)
 
 all: libhqt
 	
 libhqt:
 	@(cd bin && $(MAKE) --no-print-directory -f ../src/Makefile libhqt)
+	@(echo [hqt] made)
 	
 clean :
 	@(cd bin && rm -f *.o *.mod *.swp)
-	@(rm -f *.a *.so)
+	@(rm -f *.a *.so *.mod)
+	@(echo [hqt] cleaned)

@@ -1,20 +1,22 @@
-module import
+module hqt_import
+    use hqt_constants, only: hqt_dp
     implicit none
 
-    private :: import_meta_data, import_weight_data, import_tunneling_data
-    public  :: import_data
+    private
+    
+    public  :: hqt_wannier90_file
 
 contains
-    subroutine import_meta_data(file_number, num_r, num_bands)
+    subroutine hqt_meta_data(file_number, num_r, num_bands)
         integer, intent(in)  :: file_number
         integer, intent(out) :: num_bands, num_r
         read(file_number, *) ! Skip Header
         read(file_number, *) num_bands
         read(file_number, *) num_r
 
-    end subroutine import_meta_data
+    end subroutine hqt_meta_data
 
-    subroutine import_weight_data(file_number, w, num_r)
+    subroutine hqt_weight_data(file_number, w, num_r)
         integer, intent(in)               :: file_number, num_r
         integer                           :: i, iso
         integer, intent(out), allocatable :: w(:)
@@ -27,15 +29,15 @@ contains
         end do
         read(file_number, *) ! Go to new line
         
-    end subroutine import_weight_data
+    end subroutine hqt_weight_data
 
 
-    subroutine import_tunneling_data(file_number, rx, ry, rz, bi, bj, t, max_hopping, num_r, num_bands)
-        integer,    intent(in)               :: file_number, num_r, num_bands
-        integer                              :: i
-        complex*16, intent(out), allocatable :: t(:)
-        integer,    intent(out), allocatable :: rx(:), ry(:), rz(:), bi(:), bj(:)
-        integer,    intent(out)              :: max_hopping
+    subroutine hqt_tunneling_data(file_number, rx, ry, rz, bi, bj, t, max_hopping, num_r, num_bands)
+        integer,     intent(in)               :: file_number, num_r, num_bands
+        integer                               :: i
+        complex(hqt_dp), intent(out), allocatable :: t(:)
+        integer,     intent(out), allocatable :: rx(:), ry(:), rz(:), bi(:), bj(:)
+        integer,     intent(out)              :: max_hopping
         max_hopping = 0
         allocate(rx(num_r * num_bands**2))
         allocate(ry(num_r * num_bands**2))
@@ -58,20 +60,20 @@ contains
             end if
         end do         
 
-    end subroutine import_tunneling_data
+    end subroutine hqt_tunneling_data
 
-    subroutine import_data(file_name, hr, hrw, max_hopping, num_bands)
+    subroutine hqt_wannier90_file(file_name, hr, hrw, max_hopping, num_bands)
         character(*), intent(in)               :: file_name
-        complex*16,   allocatable              :: t(:)
+        complex(hqt_dp),  allocatable              :: t(:)
         integer,      allocatable              :: rx(:), ry(:), rz(:), bi(:), bj(:), w(:)
         integer                                :: file_number, num_r, i, n
         integer,      intent(out)              :: max_hopping, num_bands
         integer,      intent(out), allocatable :: hrw(:, :, :)
-        complex*16,   intent(out), allocatable :: hr(:, :, :, :, :)
+        complex(hqt_dp),  intent(out), allocatable :: hr(:, :, :, :, :)
         open(newunit = file_number, file = trim(file_name))
-        call import_meta_data(file_number, num_r, num_bands)
-        call import_weight_data(file_number, w, num_r)
-        call import_tunneling_data(file_number, rx, ry, rz, bi, bj, t, max_hopping, num_r, num_bands)
+        call hqt_meta_data(file_number, num_r, num_bands)
+        call hqt_weight_data(file_number, w, num_r)
+        call hqt_tunneling_data(file_number, rx, ry, rz, bi, bj, t, max_hopping, num_r, num_bands)
         close(file_number)
         allocate(hr(2 * max_hopping + 1, 2 * max_hopping + 1, 2 * max_hopping + 1, num_bands, num_bands))
         allocate(hrw(2 * max_hopping + 1, 2 * max_hopping + 1, 2 * max_hopping + 1))
@@ -87,6 +89,6 @@ contains
             end if
         end do
 
-    end subroutine import_data
+    end subroutine hqt_wannier90_file
 
-end module import
+end module hqt_import

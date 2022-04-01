@@ -7,13 +7,12 @@ Models electron tunneling in Heterostructure by applying quantum wells. Can dete
 
 Use the classic install method:
 ```
-./configure (TODO)
 make
 make install
 ```
 
-Is built using [openmpi](https://www.open-mpi.org/) if installation found else uses [openmp](https://www.openmp.org/). (TODO)
+Can be built to enable [openmpi](https://www.open-mpi.org/), else it uses [openmp](https://www.openmp.org/) [TODO].
 
 ## Examples
- - Determine band structure and number density of the dxy, dxz and dyz bands of a Strontium Titanait(SrTiO3) heterostructure with the aim of producing quantum resonance
- - Apply Poisson-schrodinger equation to determine an impirical formula for fields applied at the surface of SrTiO3
+ - Determine band structure and number density of the dxy, dxz and dyz bands of a Strontium Titanait(SrTiO3) heterostructure with the aim of producing quantum resonance[TODO]
+ - Apply Poisson-schrodinger equation to determine an impirical formula for fields applied at the surface of SrTiO3[TODO]
