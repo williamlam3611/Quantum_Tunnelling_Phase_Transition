@@ -1,3 +1,3 @@
 compiler := mpifort
 mpi      := true
-compiler_flags := -O3 -fbackslash -fopenmp -Wuninitialized -fbounds-check
+compiler_flags :=-O3 -fbackslash -fopenmp
