@@ -408,10 +408,10 @@ contains
     
     
     function hqt_range_real(start, stop, number) result(array)
-        integer, intent(in)  :: number
+        integer, intent(in)      :: number
         real(hqt_dp), intent(in) :: start
         real(hqt_dp), intent(in) :: stop
-        integer              :: i
+        integer                  :: i
         real(hqt_dp)             :: array(number)
         array = start
         do i = 2, number

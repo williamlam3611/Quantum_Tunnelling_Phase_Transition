@@ -87,6 +87,7 @@ contains
         type(hqt_crystal)   :: material
         material%crystal_length = crystal_length
         material%lattice_vectors = lattice_vectors
+        allocate(material%atom_positions(size(atom_positions(:, 1)), size(atom_positions(1, :))))
         material%atom_positions = atom_positions
         material%atom_types = atom_types
         material%tunneling = tunneling

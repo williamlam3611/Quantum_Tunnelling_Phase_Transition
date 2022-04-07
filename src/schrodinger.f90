@@ -7,7 +7,7 @@ implicit none
 
 private
 
-public :: hqt_solve_schrodinger
+public :: hqt_solve_schrodinger, hqt_supercell
 
 
 interface hqt_solve_schrodinger
@@ -19,7 +19,7 @@ end interface
 
 contains
     subroutine hqt_solve_schrodinger_none(energy, weight, structure, kx, ky)
-        type(hqt_heterostructure(*)), intent(in) :: structure
+        type(hqt_heterostructure), intent(in) :: structure
         real(hqt_dp), intent(in)              :: kx
         real(hqt_dp), intent(in)              :: ky
         real(hqt_dp), intent(out)             :: energy(structure%num_layers * structure%material%num_bands)
@@ -30,7 +30,7 @@ contains
     end subroutine hqt_solve_schrodinger_none
     
     subroutine hqt_solve_schrodinger_integer(energy, weight, num_found, structure, kx, ky, minimum, maximum)
-        type(hqt_heterostructure(*)), intent(in) :: structure
+        type(hqt_heterostructure), intent(in) :: structure
         real(hqt_dp), intent(in)              :: kx
         real(hqt_dp), intent(in)              :: ky
         integer, intent(in)               :: minimum
@@ -44,7 +44,7 @@ contains
     end subroutine hqt_solve_schrodinger_integer
     
     subroutine hqt_solve_schrodinger_real(energy, weight, num_found, structure, kx, ky, minimum, maximum)
-        type(hqt_heterostructure(*)), intent(in) :: structure
+        type(hqt_heterostructure), intent(in) :: structure
         real(hqt_dp), intent(in)              :: kx
         real(hqt_dp), intent(in)              :: ky
         real(hqt_dp), intent(in)              :: minimum
@@ -59,14 +59,14 @@ contains
     
     
     function hqt_supercell(kx, ky, structure) result(supercell)
-        type(hqt_heterostructure(*)), intent(in) :: structure
+        type(hqt_heterostructure), intent(in) :: structure
         real(hqt_dp), intent(in)                   :: kx
         real(hqt_dp), intent(in)                   :: ky
         complex(hqt_dp)                            :: zcell(2 * structure%material%max_hopping + 1, &
                                                         structure%material%num_bands, &
                                                         structure%material%num_bands)
         real(hqt_dp)                               :: phase
-        integer                                :: x, y, z, i, j, k
+        integer                                    :: x, y, z, i, j, k
         complex(hqt_dp)                            :: supercell(structure%num_layers * structure%material%num_bands, &
                                                             structure%num_layers * structure%material%num_bands)
         ! Build zcell
@@ -91,19 +91,25 @@ contains
         do i = 1, structure%num_layers
             do j = 1, structure%num_layers
                 if (abs(i - j) <= structure%material%max_hopping) then
-                    ! Add zcell
                     supercell(structure%material%num_bands * (i - 1) + 1:structure%material%num_bands * i, &
                               structure%material%num_bands * (j - 1) + 1:structure%material%num_bands * j) &
-                        = zcell(i - j + structure%material%max_hopping + 1, :, :)
-                    ! Add Potential
-                    do k = 1, structure%material%num_bands
-                        supercell(structure%material%num_bands * (i - 1) + k, &
-                                  structure%material%num_bands * (j - 1) + k) &
-                            = supercell(structure%material%num_bands * (i - 1) + k, &
-                                        structure%material%num_bands * (j - 1) + k) + structure%potential(k)
-                    end do
+                        = zcell(abs(i - j) + structure%material%max_hopping + 1, :, :)
                 end if
             end do
+        end do
+        ! Add Potential
+        do i = 1, structure%num_layers
+            supercell(      structure%material%num_bands * (i - 1) + 1:structure%material%num_bands * i:structure%num_layers + 1, &
+                            structure%material%num_bands * (i - 1) + 1:structure%material%num_bands * i:structure%num_layers + 1) &
+                = supercell(structure%material%num_bands * (i - 1) + 1:structure%material%num_bands * i:structure%num_layers + 1, &
+                            structure%material%num_bands * (i - 1) + 1:structure%material%num_bands * i:structure%num_layers + 1) & 
+                      + structure%potential(i)
+            !do k = 1, structure%material%num_bands
+            !    supercell(structure%material%num_bands * (i - 1) + k, &
+            !              structure%material%num_bands * (i - 1) + k) &
+            !        = supercell(structure%material%num_bands * (i - 1) + k, &
+            !                    structure%material%num_bands * (i - 1) + k) + structure%potential(i)
+            !end do
         end do
         
     end function hqt_supercell

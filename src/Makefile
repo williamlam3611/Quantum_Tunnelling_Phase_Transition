@@ -5,7 +5,7 @@ libraries := -L/usr/lib -llapack -lblas -lsymspg
 modules := spglib_f08 constants error tool \
            type import matrix schrodinger  \
            band_contribution spectral_function     \
-           number_density
+           number_density potential path
 
 ifeq ($(mpi),true)
 	modules += cpu 
