@@ -1,3 +1,0 @@
-compiler := gfortran
-mpi      := false
-compiler_flags :=-O3 -fbackslash -fopenmp

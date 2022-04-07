@@ -22,7 +22,7 @@ contains
             timer_last_tic = timer_start_tic
         end if
         call system_clock(timer_tic)
-        write (*, fmt = "(A22, f8.1, A10, f8.1, A1)") &
+        write (*, fmt = "(A22, f8.1, A9, f8.1)") &
             "Ellapsed Time; Total: ", dble(timer_tic - timer_start_tic) / timer_tics_per_second, &
             "s, Split: ", dble(timer_tic - timer_last_tic) / timer_tics_per_second, "s"
         timer_last_tic = timer_tic

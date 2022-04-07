@@ -17,6 +17,10 @@ interface export_vstack
                      export_vstack_double,    export_vstack_double_array,    export_vstack_double_array2
 end interface export_vstack
 
+interface export_to_string
+    module procedure export_to_string_integer, export_to_string_double
+end interface export_to_string
+
 
 contains
     subroutine export_open_append(path, file_number)
@@ -70,6 +74,26 @@ contains
         
     
     end function export_create_dir
+        
+    function export_to_string_integer(value) result(string)
+        integer,      intent(in)  :: value
+        character(256)            :: buffer
+        character(:), allocatable :: string
+        write(buffer, "(I6.1)") value
+        buffer = adjustl(buffer)
+        string = trim(buffer)
+    
+    end function export_to_string_integer
+    
+    function export_to_string_double(value) result(string)
+        real*8,       intent(in)  :: value
+        character(256)            :: buffer
+        character(:), allocatable :: string
+        write(buffer, "(F16.8)") value
+        buffer = adjustl(buffer)
+        string = trim(buffer)
+    
+    end function export_to_string_double
     
     subroutine export_vstack_character(path, data, fmt)
         character(*), intent(in)  :: path
