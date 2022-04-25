@@ -1,0 +1,11 @@
+#      Num K Len      Num Layers      Num Path K Num Path Energy            
+              60              80              59              60            
+#     Broadening Crystal Len (a)   K Len [2pi*a]            
+                    0.00250000                    3.90500000                    1.00000000            
+#            Min             Max            
+                   -0.20000000                    0.00000000 # Potential
+                    0.00000000                    0.15609165 # Density  
+                   -0.25448089                    0.00000000 # Heatmap y
+                   -2.94985795                    8.23005898 # Heatmap c
+sheet carrier density (cm^-2)
+      251483435553239.46875000
