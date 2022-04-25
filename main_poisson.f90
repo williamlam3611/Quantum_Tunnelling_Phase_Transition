@@ -16,15 +16,22 @@ program main
     use mpi
     implicit none
     
-    integer,        parameter   :: num_layers         = 80 !150!  30! 120 ! 150
+    !!!
+    ! OPTIMISATIONS
+    logical,        parameter   :: reduced_graphs     = .true.
+    logical,        parameter   :: import_potential   = .true.
+    integer,        parameter   :: min_count          = 16
+    !!!!
     
-    integer                     :: well_start         = 1!6
-    integer                     :: well_stop          = 80 !45!20
-    real*8                      :: well_start_depth   = -0.02d0 !-0.3d0!-2d0 !-0.5d0
-    real*8                      :: well_stop_depth    = 0d0! -0.1d0! 0d0
+    integer,        parameter   :: num_layers         = 150
     
-    integer,        parameter   :: num_k_length       = 60!128!192!256!128! 256
-    integer,        parameter   :: num_energy         = 60!128!192!256!128! 256
+    integer                     :: well_start         = 1
+    integer                     :: well_stop          = 75
+    real*8                      :: well_start_depth   = -0.16d0
+    real*8                      :: well_stop_depth    = 0d0
+    
+    integer,        parameter   :: num_k_length       = 92
+    integer,        parameter   :: num_energy         = 92
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
     
@@ -47,7 +54,7 @@ program main
     real*8                      :: permativity
     real*8                      :: epsilon_0          = 8.85418782d-12
     real*8,         parameter   :: crit_field         = 470d3 * 1d2 !(unit: 470 kVm-1)
-    real*8                      :: r_sensitivity      = 1d-8 !0.001d0
+    real*8                      :: r_sensitivity      = crystal_length * 1d2!0.001d0
     real*8                      :: e_field 
     real*8  ,       allocatable :: dielectric_array(:) 
     
@@ -118,6 +125,23 @@ program main
     pot     = 0d0
     pot_new = 0d0
     call potential_add_well(pot, well_start, well_stop, well_start_depth, well_stop_depth)
+    
+    
+    !!!
+    ! IMPORT POTENTIAL
+    if (import_potential) then
+        if (cpu_is_master()) then
+            open(newunit = i, file = "potential.dat")
+            do j = 1, size(pot)
+                read(i, fmt = "(f30.8)", iostat = k) pot(j)
+                if (k .ne. 0) exit
+            end do
+            close(i)
+            print *, pot
+        end if
+        call cpu_broadcast(pot, size(pot))
+    end if
+    !!!
         
     ! Extract Data
     call import_data(input_file, hr, hrw, max_hopping, num_bands)
@@ -208,8 +232,8 @@ program main
     
     r_max = r_sensitivity + 1d0
     i = 0
-    do while (r_max > r_sensitivity)
-
+    do while (r_max > r_sensitivity .or. i < min_count)
+        
 
         i = i + 1
         den_cpu          = 0d0
@@ -283,180 +307,6 @@ program main
         
         ! No more multithreading for rest of cycle
         if (cpu_is_master()) then
-            if (cpu_is_master()) then
-                write(*, fmt = "(A)", advance = "no") "  Plot Data:     "
-                call system_clock(start_time)
-            end if
-            
-            ! Variation Meta Data
-            variation_dir = export_create_dir(trim(path), "Variation "//export_to_string(i))
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                "#      Num K Len      Num Layers      Num Path K Num Path Energy")
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/   num_k_length,     num_layers,       size(kp),     num_energy /))
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                "#     Broadening Crystal Len (a)   K Len [2pi*a]")
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/     broadening, crystal_length * 1d10, length_scale /))
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                "#            Min             Max")
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ minval(pot),                    maxval(pot) /))
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ minval(den),                          maxval(den) /))
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ minval(energy_range),           maxval(energy_range) /))
-            call export_vstack(trim(variation_dir)//"meta.dat", &
-                (/ minval(log(sum(sum(heatmap, 2), 2))), maxval(log(sum(sum(heatmap, 2), 2))) /))
-            call export_hstack(trim(variation_dir)//"meta.dat", &
-                (/ "            ", "            ", "            ", "            ", "            ", &
-                " # Potential", " # Density  ", " # Heatmap y", " # Heatmap c" /))
-                
-            ! Variation Potential
-            call export_hstack(trim(variation_dir)//"potential.dat", pot)
-                       
-            if (i == 1) then  
-                call graph_basic(data_folder = trim(variation_dir)//"potential.dat", &
-                                 output_file = trim(variation_dir)//"potential", &
-                                 x_label = "Layer", &
-                                 y_label = "Potential [eV]")
-            else            
-                call graph_basic(data_folder = trim(path)//"Variation 1"//"/"//"potential.dat", &
-                                 data_folder_2 = trim(variation_dir)//"potential.dat", &
-                                 output_file = trim(variation_dir)//"potential", &
-                                 x_label = "Layer", &
-                                 y_label = "Potential [eV]")
-
-                call graph_basic(data_folder = trim(path)//"Variation 1"//"/"//"potential.dat", &
-                                 data_folder_2 = trim(variation_dir)//"potential.dat", &
-                                 output_file = trim(variation_dir)//"potential_zoom", &
-                                 x_label = "Layer", &
-                                 y_label = "Potential [eV]", zoom_layer = 80)                                                         
-            end if 
-            
-            !save layer 1 
-            !if (i ==1) then 
-            !    density_bulk = den 
-            !end if 
-            
-            
-            ! Variation Density
-            do z = 1, num_layers
-                ! record into cm^-2
-                density_corrected(z) = (sum(den(z, :, :)) - density_cbm(z) * 1d-18) * 1d18 * 1d-4
-            end do 
-            
-            call export_hstack(trim(variation_dir)//"density.dat", density_corrected)
-            call export_hstack(trim(variation_dir)//"density.dat", transpose(sort_normalise(sum(den, 3))))
-            
-            if (i ==1) then 
-                call graph_colour(data_folder    = trim(variation_dir)//"density.dat", &
-                                  output_file    = trim(variation_dir)//"density", &
-                                  x_label        = "Layer", &
-                                  y_label        = "Carrier Density [cm^{-2}]", &
-                                  x_triangle     = 0.75d0, &
-                                  y_triangle     = 0.75d0, &
-                                  triangle_size  = 0.15d0, &
-                                  column_label_1 = "d_{xy}", &
-                                  column_label_2 = "d_{xz}", &
-                                  column_label_3 = "d_{yz}")
-            else 
-                call graph_colour(data_folder    = trim(path)//"Variation 1"//"/"//"density.dat", &
-                                  data_folder_2  = trim(variation_dir)//"density.dat", &
-                                  output_file    = trim(variation_dir)//"density", &
-                                  x_label        = "Layer", &
-                                  y_label        = "Carrier Density [cm^{-2}]", &
-                                  x_triangle     = 0.75d0, &
-                                  y_triangle     = 0.75d0, &
-                                  triangle_size  = 0.15d0, &
-                                  column_label_1 = "d_{xy}", &
-                                  column_label_2 = "d_{xz}", &
-                                  column_label_3 = "d_{yz}")
-            end if                   
-            ! Variation Heatmap                  
-            call export_hstack(trim(variation_dir)//"band structure.dat",  log(sum(sum(heatmap, 2), 2)))                  
-            call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(variation_dir))
-            
-            ! Variation Energymap
-            energymap_dir = export_create_dir(trim(variation_dir), "Energymap")
-            do j = 1, max_state - min_state + 1
-                call export_hstack(trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", energymap(:, j))
-                call export_hstack(trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
-                                   transpose(contribution(:, :, j)))
-            end do
-            call graph_colour_MGX(data_folder    = trim(energymap_dir), &
-                                  output_file    = trim(energymap_dir), &
-                                  x_label        = "K_{M Γ X} [π/a]", &
-                                  y_label        = "E - E_{cbm} [ev]", &
-                                  x_triangle     = 0.2d0, &
-                                  y_triangle     = 0.2d0, &
-                                  triangle_size  = 0.15d0, &
-                                  column_label_1 = "d_{xy}", &
-                                  column_label_2 = "d_{xz}", &
-                                  column_label_3 = "d_{yz}", &
-                                  k_scale        = length_scale, &
-                                  min_y          = minval(energy_range), &
-                                  max_y          = maxval(energy_range))
-            
-            do j = 1, max_state - min_state + 1
-                energy_state_dir = export_create_dir(trim(variation_dir)//"Energy States/", &
-                    "Energy State "//export_to_string(j))
-                    
-                ! Variation Energy State Density
-                call export_hstack(trim(energy_state_dir)//"density.dat", sum(den(:, :, j), 2))
-                call export_hstack(trim(energy_state_dir)//"density.dat", transpose(sort_normalise(den(:, :, j))))
-                call graph_colour(data_folder    = trim(energy_state_dir)//"density.dat", &
-                                  output_file    = trim(energy_state_dir)//"density", &
-                                  x_label        = "Layer", &
-                                  y_label        = "Carrier Density [nm^{-2}]", &
-                                  x_triangle     = 0.75d0, &
-                                  y_triangle     = 0.75d0, &
-                                  triangle_size  = 0.15d0, &
-                                  column_label_1 = "d_{xy}", &
-                                  column_label_2 = "d_{xz}", &
-                                  column_label_3 = "d_{yz}")
-                                  
-                ! Variation Energy State Heatmap
-                call export_hstack(trim(energy_state_dir)//"band structure"//".dat", log(sum(heatmap(:, :, j, :), 2)))
-                call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(energy_state_dir))
-                
-                ! Variation Energy State Energymap
-                call graph_colour_MGX(data_folder    = trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
-                                      output_file    = trim(energy_state_dir)//"Energymap", &
-                                      x_label        = "K_{M Γ X} [π/a]", &
-                                      y_label        = "E - E_{cbm} [ev]", &
-                                      x_triangle     = 0.2d0, &
-                                      y_triangle     = 0.2d0, &
-                                      triangle_size  = 0.15d0, &
-                                      column_label_1 = "d_{xy}", &
-                                      column_label_2 = "d_{xz}", &
-                                      column_label_3 = "d_{yz}", &
-                                      k_scale        = length_scale, &
-                                      min_y          = minval(energy_range), &
-                                      max_y          = maxval(energy_range))
-                              
-                if (cpu_is_master()) call main_status(j, max_state - min_state + 1, start_time)
-            end do
-            if (cpu_is_master()) then
-                call main_clear_status()
-                write(*, fmt = "(A)") "100%"
-            end if
-            
-            ! Total Density
-            call export_vstack(trim(path)//"Total_Density.dat", sum(den))
-            call export_vstack(trim(path)//"Quantum_Well_Density.dat", sum(den(well_start:well_stop, :, :)))
-            call graph_basic(data_folder = trim(path)//"Total_Density.dat", &
-                             output_file = trim(path)//"Total_Density", &
-                             x_label = "Surface Layer Doping [-0.1eV]", &
-                             y_label = "Carrier Density [nm^{-2}]")
-            call graph_basic(data_folder = trim(path)//"Quantum_Well_Density.dat", &
-                             output_file = trim(path)//"Quantum_Well_Density", &
-                             x_label = "Surface Layer Doping [-0.1eV]", &
-                             y_label = "Carrier Density [nm^{-2}]")
-            
-            write(*, fmt = "(A10, I4.1, A9)") "Variation ", i, " complete"
-            call timer_split()
-            
             
             !!!!!
             pot_new = 0d0
@@ -497,12 +347,202 @@ program main
                 pot_new(z) = pot(z) - alpha * r * crystal_length**2
                 if (abs(r) > r_max) r_max = abs(r * crystal_length**2)
             end do
-            pot = pot_new
-            if (cpu_is_master()) then
-                print *, r_max, r_sensitivity
-                print*,  'sheet carrier density' ,  sheet_carrier_density, 'cm^-2'
-            end if
+            
+            print *, r_max, r_sensitivity
+            print*,  'sheet carrier density' ,  sheet_carrier_density, 'cm^-2'
             !!!! 
+            
+        
+            if (cpu_is_master()) then
+                write(*, fmt = "(A)", advance = "no") "  Plot Data:     "
+                call system_clock(start_time)
+            end if
+            
+            ! Variation Meta Data
+            variation_dir = export_create_dir(trim(path), "Variation "//export_to_string(i))
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                "#      Num K Len      Num Layers      Num Path K Num Path Energy")
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                (/   num_k_length,     num_layers,       size(kp),     num_energy /))
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                "#     Broadening Crystal Len (a)   K Len [2pi*a]")
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                (/     broadening, crystal_length * 1d10, length_scale /))
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                "#            Min             Max")
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                (/ minval(pot),                    maxval(pot) /))
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                (/ minval(den),                          maxval(den) /))
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                (/ minval(energy_range),           maxval(energy_range) /))
+            call export_vstack(trim(variation_dir)//"meta.dat", &
+                (/ minval(log(sum(sum(heatmap, 2), 2))), maxval(log(sum(sum(heatmap, 2), 2))) /))
+            call export_hstack(trim(variation_dir)//"meta.dat", &
+                (/ "            ", "            ", "            ", "            ", "            ", &
+                " # Potential", " # Density  ", " # Heatmap y", " # Heatmap c" /))
+                
+            ! Variation Potential
+            !if (r_max <= r_sensitivity .and. reduced_graphs) then
+                call export_hstack(trim(variation_dir)//"potential.dat", pot)
+                           
+                if (i == 1) then  
+                    call graph_basic(data_folder = trim(variation_dir)//"potential.dat", &
+                                     output_file = trim(variation_dir)//"potential", &
+                                     x_label = "Layer", &
+                                     y_label = "Potential [eV]")
+                else            
+                    call graph_basic(data_folder = trim(path)//"Variation 1"//"/"//"potential.dat", &
+                                     data_folder_2 = trim(variation_dir)//"potential.dat", &
+                                     output_file = trim(variation_dir)//"potential", &
+                                     x_label = "Layer", &
+                                     y_label = "Potential [eV]")
+
+                    call graph_basic(data_folder = trim(path)//"Variation 1"//"/"//"potential.dat", &
+                                     data_folder_2 = trim(variation_dir)//"potential.dat", &
+                                     output_file = trim(variation_dir)//"potential_zoom", &
+                                     x_label = "Layer", &
+                                     y_label = "Potential [eV]", zoom_layer = 80)                                                         
+                end if 
+                call graph_basic(data_folder = trim(variation_dir)//"potential.dat", &
+                                 output_file = trim(path)//"potential", &
+                                 x_label = "Layer", &
+                                 y_label = "Potential [eV]")
+            !end if
+            
+            !save layer 1 
+            !if (i ==1) then 
+            !    density_bulk = den 
+            !end if 
+            
+            
+            ! Variation Density
+            do z = 1, num_layers
+                ! record into cm^-2
+                density_corrected(z) = (sum(den(z, :, :)) - density_cbm(z) * 1d-18) * 1d18 * 1d-4
+            end do 
+            
+            call export_hstack(trim(variation_dir)//"density.dat", density_corrected)
+            call export_hstack(trim(variation_dir)//"density.dat", transpose(sort_normalise(sum(den, 3))))
+            
+            if (i ==1) then 
+                call graph_colour(data_folder    = trim(variation_dir)//"density.dat", &
+                                  output_file    = trim(variation_dir)//"density", &
+                                  x_label        = "Layer", &
+                                  y_label        = "Carrier Density [cm^{-2}]", &
+                                  x_triangle     = 0.75d0, &
+                                  y_triangle     = 0.75d0, &
+                                  triangle_size  = 0.15d0, &
+                                  column_label_1 = "d_{xy}", &
+                                  column_label_2 = "d_{xz}", &
+                                  column_label_3 = "d_{yz}")
+            else 
+                call graph_colour(data_folder    = trim(path)//"Variation 1"//"/"//"density.dat", &
+                                  data_folder_2  = trim(variation_dir)//"density.dat", &
+                                  output_file    = trim(variation_dir)//"density", &
+                                  x_label        = "Layer", &
+                                  y_label        = "Carrier Density [cm^{-2}]", &
+                                  x_triangle     = 0.75d0, &
+                                  y_triangle     = 0.75d0, &
+                                  triangle_size  = 0.15d0, &
+                                  column_label_1 = "d_{xy}", &
+                                  column_label_2 = "d_{xz}", &
+                                  column_label_3 = "d_{yz}")
+            end if                   
+            ! Variation Heatmap        
+            if (r_max <= r_sensitivity .and. reduced_graphs) then          
+                call export_hstack(trim(variation_dir)//"band structure.dat",  log(sum(sum(heatmap, 2), 2)))                  
+                call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(variation_dir))
+            end if
+            
+            ! Variation Energymap
+            if (r_max <= r_sensitivity .and. reduced_graphs) then
+                energymap_dir = export_create_dir(trim(variation_dir), "Energymap")
+                do j = 1, max_state - min_state + 1
+                    call export_hstack(trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", energymap(:, j))
+                    call export_hstack(trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                                       transpose(contribution(:, :, j)))
+                end do
+                call graph_colour_MGX(data_folder    = trim(energymap_dir), &
+                                      output_file    = trim(energymap_dir), &
+                                      x_label        = "K_{M Γ X} [π/a]", &
+                                      y_label        = "E - E_{cbm} [ev]", &
+                                      x_triangle     = 0.2d0, &
+                                      y_triangle     = 0.2d0, &
+                                      triangle_size  = 0.15d0, &
+                                      column_label_1 = "d_{xy}", &
+                                      column_label_2 = "d_{xz}", &
+                                      column_label_3 = "d_{yz}", &
+                                      k_scale        = length_scale, &
+                                      min_y          = minval(energy_range), &
+                                      max_y          = maxval(energy_range))
+            end if
+            
+            if (r_max <= r_sensitivity .and. reduced_graphs) then
+                do j = 1, max_state - min_state + 1
+                    energy_state_dir = export_create_dir(trim(variation_dir)//"Energy States/", &
+                        "Energy State "//export_to_string(j))
+                        
+                    ! Variation Energy State Density
+                    call export_hstack(trim(energy_state_dir)//"density.dat", sum(den(:, :, j), 2))
+                    call export_hstack(trim(energy_state_dir)//"density.dat", transpose(sort_normalise(den(:, :, j))))
+                    call graph_colour(data_folder    = trim(energy_state_dir)//"density.dat", &
+                                      output_file    = trim(energy_state_dir)//"density", &
+                                      x_label        = "Layer", &
+                                      y_label        = "Carrier Density [nm^{-2}]", &
+                                      x_triangle     = 0.75d0, &
+                                      y_triangle     = 0.75d0, &
+                                      triangle_size  = 0.15d0, &
+                                      column_label_1 = "d_{xy}", &
+                                      column_label_2 = "d_{xz}", &
+                                      column_label_3 = "d_{yz}")
+                                      
+                    ! Variation Energy State Heatmap
+                    call export_hstack(trim(energy_state_dir)//"band structure"//".dat", log(sum(heatmap(:, :, j, :), 2)))
+                    call graph_heatmap_plot("band structure", "band structure", trim(variation_dir)//"meta", trim(energy_state_dir))
+                    
+                    ! Variation Energy State Energymap
+                    call graph_colour_MGX(data_folder    = trim(energymap_dir)//"Energy_level_"//export_to_string(j, "0")//".dat", &
+                                          output_file    = trim(energy_state_dir)//"Energymap", &
+                                          x_label        = "K_{M Γ X} [π/a]", &
+                                          y_label        = "E - E_{cbm} [ev]", &
+                                          x_triangle     = 0.2d0, &
+                                          y_triangle     = 0.2d0, &
+                                          triangle_size  = 0.15d0, &
+                                          column_label_1 = "d_{xy}", &
+                                          column_label_2 = "d_{xz}", &
+                                          column_label_3 = "d_{yz}", &
+                                          k_scale        = length_scale, &
+                                          min_y          = minval(energy_range), &
+                                          max_y          = maxval(energy_range))
+                
+                
+                    if (cpu_is_master()) call main_status(j, max_state - min_state + 1, start_time)
+                end do
+            end if
+            if (cpu_is_master()) then
+                call main_clear_status()
+                write(*, fmt = "(A)") "100%"
+            end if
+            
+            ! Total Density
+            if (r_max <= r_sensitivity .and. reduced_graphs) then
+                call export_vstack(trim(path)//"Total_Density.dat", sum(den))
+                call export_vstack(trim(path)//"Quantum_Well_Density.dat", sum(den(well_start:well_stop, :, :)))
+                call graph_basic(data_folder = trim(path)//"Total_Density.dat", &
+                                 output_file = trim(path)//"Total_Density", &
+                                 x_label = "Surface Layer Doping [-0.1eV]", &
+                                 y_label = "Carrier Density [nm^{-2}]")
+                call graph_basic(data_folder = trim(path)//"Quantum_Well_Density.dat", &
+                                 output_file = trim(path)//"Quantum_Well_Density", &
+                                 x_label = "Surface Layer Doping [-0.1eV]", &
+                                 y_label = "Carrier Density [nm^{-2}]")
+            end if
+            
+            write(*, fmt = "(A10, I4.1, A9)") "Variation ", i, " complete"
+            call timer_split()
+            
+           
             call export_hstack(trim(variation_dir)//"variable_dielectric.dat", dielectric_array )
             
             call graph_basic(data_folder = trim(variation_dir)//"variable_dielectric.dat", &
@@ -515,7 +555,8 @@ program main
                 
             call export_vstack(trim(variation_dir)//"meta.dat", &
                 (/ sheet_carrier_density /))
-
+            
+            pot = pot_new
 
         end if
         call cpu_broadcast(pot, size(pot))
@@ -528,6 +569,7 @@ program main
         
     end do
     
+    if (cpu_is_master()) print *, char(7)
     call cpu_stop()
     
 contains
