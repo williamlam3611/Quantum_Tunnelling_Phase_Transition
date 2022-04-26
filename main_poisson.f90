@@ -20,18 +20,18 @@ program main
     ! OPTIMISATIONS
     logical,        parameter   :: reduced_graphs     = .true.
     logical,        parameter   :: import_potential   = .true.
-    integer,        parameter   :: min_count          = 16
+    integer,        parameter   :: min_count          = 1
     !!!!
     
-    integer,        parameter   :: num_layers         = 150
+    integer,        parameter   :: num_layers         = 80
     
     integer                     :: well_start         = 1
-    integer                     :: well_stop          = 75
+    integer                     :: well_stop          = 80
     real*8                      :: well_start_depth   = -0.16d0
     real*8                      :: well_stop_depth    = 0d0
     
-    integer,        parameter   :: num_k_length       = 92
-    integer,        parameter   :: num_energy         = 92
+    integer,        parameter   :: num_k_length       = 60
+    integer,        parameter   :: num_energy         = 60
     real*8,         parameter   :: length_scale       = 1d0
     real*8,         parameter   :: broadening         = 0.0025d0    
     
@@ -54,7 +54,7 @@ program main
     real*8                      :: permativity
     real*8                      :: epsilon_0          = 8.85418782d-12
     real*8,         parameter   :: crit_field         = 470d3 * 1d2 !(unit: 470 kVm-1)
-    real*8                      :: r_sensitivity      = crystal_length * 1d2!0.001d0
+    real*8                      :: r_sensitivity      = 1d-7
     real*8                      :: e_field 
     real*8  ,       allocatable :: dielectric_array(:) 
     
