@@ -20,14 +20,14 @@ program main
     ! OPTIMISATIONS
     logical,        parameter   :: reduced_graphs     = .true.
     logical,        parameter   :: import_potential   = .true.
-    integer,        parameter   :: min_count          = 1
+    integer,        parameter   :: min_count          = 16
     !!!!
     
     integer,        parameter   :: num_layers         = 80
     
     integer                     :: well_start         = 1
     integer                     :: well_stop          = 80
-    real*8                      :: well_start_depth   = -0.16d0
+    real*8                      :: well_start_depth   = -0.015d0
     real*8                      :: well_stop_depth    = 0d0
     
     integer,        parameter   :: num_k_length       = 60
@@ -54,7 +54,7 @@ program main
     real*8                      :: permativity
     real*8                      :: epsilon_0          = 8.85418782d-12
     real*8,         parameter   :: crit_field         = 470d3 * 1d2 !(unit: 470 kVm-1)
-    real*8                      :: r_sensitivity      = 1d-7
+    real*8                      :: r_sensitivity      = 1d-8
     real*8                      :: e_field 
     real*8  ,       allocatable :: dielectric_array(:) 
     
@@ -133,7 +133,7 @@ program main
         if (cpu_is_master()) then
             open(newunit = i, file = "potential.dat")
             do j = 1, size(pot)
-                read(i, fmt = "(f30.8)", iostat = k) pot(j)
+                read(i, fmt = "(f64.16)", iostat = k) pot(j)
                 if (k .ne. 0) exit
             end do
             close(i)
@@ -419,7 +419,7 @@ program main
             ! Variation Density
             do z = 1, num_layers
                 ! record into cm^-2
-                density_corrected(z) = (sum(den(z, :, :)) - density_cbm(z) * 1d-18) * 1d18 * 1d-4
+                density_corrected(z) = (sum(den(z, :, :)) - density_cbm(z)) * 1d-4
             end do 
             
             call export_hstack(trim(variation_dir)//"density.dat", density_corrected)
