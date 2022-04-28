@@ -7,7 +7,7 @@ modules = spglib_f08.f90 cpu.f90 timer.f90 import.f90 route.f90 potential.f90 tr
 target = main.f90
 output = a.out
 
-.PHONEY : debug clean run poisson_make poisson
+.PHONEY : debug clean run poisson_make poisson poisson_multiple_make poisson_multiple
 
 default :
 	@$(compiler) $(compiler_flags) $(modules) $(target) -o a.out $(libraries)
@@ -15,12 +15,19 @@ default :
 poisson_make :
 	@$(compiler) $(compiler_flags) $(modules) main_poisson.f90 -o b.out $(libraries)
 	
+poisson_multiple_make :
+	@$(compiler) $(compiler_flags) $(modules) main_poisson_multiple.f90 -o c.out $(libraries)
+	
 run : default
 	@mpirun -np 4 ./a.out
 	@make clean --no-print-directory
 	
 poisson : poisson_make
 	@mpirun -np 4 ./b.out
+	@make clean --no-print-directory
+	
+poisson_multiple : poisson_multiple_make
+	@mpirun -np 4 ./c.out
 	@make clean --no-print-directory
 	
 debug : 
